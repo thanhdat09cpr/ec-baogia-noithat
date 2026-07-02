@@ -1,6 +1,6 @@
 # Thư viện cho web app báo giá nội thất (ngoài requirements.txt gốc)
 flask>=3.0
-anthropic>=0.69    # Claude API: vision/PDF + structured output (output_config)
+openai>=1.55       # OpenRouter (OpenAI-compatible): vision/PDF + structured output (response_format)
 gunicorn>=22.0
 
 # --- Đa người dùng (ORM + migration + quản lý phiên/đăng nhập) ---

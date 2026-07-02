@@ -39,8 +39,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      TAKEOFF_MODEL: ${TAKEOFF_MODEL:-claude-opus-4-8}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      TAKEOFF_MODEL: ${TAKEOFF_MODEL:-anthropic/claude-opus-4.8}
       SECRET_KEY: ${SECRET_KEY:?can SECRET_KEY >=32 bytes}
       USD_VND_RATE: ${USD_VND_RATE:-25000}
     volumes:

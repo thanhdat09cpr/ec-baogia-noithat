@@ -57,15 +57,18 @@ app.config.update(
 )
 app.teardown_appcontext(shutdown_session)
 
+# Model qua OpenRouter (OpenAI-compatible). Slug đúng theo openrouter.ai.
 MODELS = {
-    "claude-opus-4-8": "Opus 4.8 — mạnh nhất ($5/$25 mỗi 1M token)",
-    "claude-sonnet-4-6": "Sonnet 4.6 — nhanh & rẻ hơn ($3/$15 mỗi 1M token)",
+    "anthropic/claude-opus-4.8": "Opus 4.8 — mạnh nhất, đọc bản vẽ tốt ($5/$25)",
+    "openai/gpt-5.5": "GPT-5.5 — nhanh ($5/$30)",
 }
+DEFAULT_MODEL = "anthropic/claude-opus-4.8"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# N3: model bóc đọc SERVER-SIDE (env, có allowlist) — client KHÔNG chọn/truyền được.
-TAKEOFF_MODEL = os.environ.get("TAKEOFF_MODEL", "claude-opus-4-8")
+# Model mặc định (env, có allowlist). Bản test: client có thể chọn model trong MODELS.
+TAKEOFF_MODEL = os.environ.get("TAKEOFF_MODEL", DEFAULT_MODEL)
 if TAKEOFF_MODEL not in MODELS:
-    TAKEOFF_MODEL = "claude-opus-4-8"
+    TAKEOFF_MODEL = DEFAULT_MODEL
 
 
 # ---------------- DB bootstrap ----------------
@@ -238,8 +241,11 @@ def _extract_rows(text):
 
 
 def do_takeoff(pdf_path, room, scope, model, api_key):
-    import anthropic
-    client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+    """Bóc khối lượng qua OpenRouter (OpenAI-compatible). model = slug trong MODELS.
+    api_key = OpenRouter key (client gửi) hoặc None → đọc OPENROUTER_API_KEY server-side."""
+    from openai import OpenAI
+    key = api_key or os.environ.get("OPENROUTER_API_KEY")
+    client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=key)
     with open(pdf_path, "rb") as f:
         pdf_b64 = base64.standard_b64encode(f.read()).decode("utf-8")
 
@@ -264,21 +270,25 @@ YÊU CẦU:
 - KHÔNG điền đơn giá (nhà thầu phụ sẽ chào). Chỉ khối lượng + quy cách + ĐVT.
 - Chỉ trả về JSON, không kèm văn bản khác."""
 
-    kwargs = dict(
-        model=model, max_tokens=16000, thinking={"type": "adaptive"},
-        system=SYSTEM,
-        messages=[{"role": "user", "content": [
-            {"type": "document",
-             "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_b64}},
-            {"type": "text", "text": prompt},
-        ]}],
+    resp = client.chat.completions.create(
+        model=model,
+        max_tokens=16000,
+        messages=[
+            {"role": "system", "content": SYSTEM},
+            {"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "file", "file": {
+                    "filename": os.path.basename(pdf_path),
+                    "file_data": f"data:application/pdf;base64,{pdf_b64}"}},
+            ]},
+        ],
+        response_format={"type": "json_schema", "json_schema": {
+            "name": "boq", "strict": True, "schema": SCHEMA}},
+        # file-parser engine 'native' → model tự NHÌN bản vẽ (không OCR mất layout).
+        extra_body={"plugins": [{"id": "file-parser", "pdf": {"engine": "native"}}]},
+        extra_headers={"X-Title": "E&C bao gia noi that"},
     )
-    try:
-        resp = client.messages.create(
-            output_config={"format": {"type": "json_schema", "schema": SCHEMA}}, **kwargs)
-    except TypeError:                       # SDK cũ không có output_config
-        resp = client.messages.create(**kwargs)
-    text = next((b.text for b in resp.content if b.type == "text"), "")
+    text = resp.choices[0].message.content or ""
     rows = _extract_rows(text)
     for r in rows:
         # GĐ1: 3 cột giá luôn trống (NCC chào ở GĐ2 — VL+NC hoặc trọn gói).
@@ -289,8 +299,9 @@ YÊU CẦU:
         r.setdefault("quy_cach", "")
         r.setdefault("dien_giai", "")
         r.setdefault("ghi_chu", "")
-    usage = resp.usage
-    return rows, {"input": usage.input_tokens, "output": usage.output_tokens}
+    u = resp.usage
+    return rows, {"input": getattr(u, "prompt_tokens", 0) or 0,
+                  "output": getattr(u, "completion_tokens", 0) or 0}
 
 
 # ---------------- routes ----------------
@@ -399,11 +410,12 @@ def api_takeoff():
     p = load_project_or_403(d["project_id"])
     scope = d.get("scope", ["I.1", "I.2", "I.3", "I.4", "I.5"])
     api_key = (d.get("api_key") or "").strip() or None
+    model = d.get("model") if d.get("model") in MODELS else TAKEOFF_MODEL
     pdf_path = os.path.join(project_dir(p), "input", f"{slug(room['ma'])}.pdf")
     if not os.path.exists(pdf_path):
         return jsonify({"ok": False, "error": "Chưa upload PDF cho phòng này."}), 400
     u = current_user()
-    job, created = jobs.submit_takeoff(p.id, u.id, room, scope, api_key)
+    job, created = jobs.submit_takeoff(p.id, u.id, room, scope, api_key, model)
     return jsonify({"ok": True, "job_id": job.id, "status": job.status, "created": created})
 
 

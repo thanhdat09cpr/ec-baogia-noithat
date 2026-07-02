@@ -50,9 +50,9 @@ def active_job(project_id, room_ma):
             .first())
 
 
-def submit_takeoff(project_id, user_id, room, scope, api_key=None):
+def submit_takeoff(project_id, user_id, room, scope, api_key=None, model=None):
     """Tạo job + submit. Trả (job, created). Nếu phòng đang chạy → trả job cũ, created=False.
-    api_key (nếu có) truyền thẳng vào thread job — KHÔNG lưu DB; để None thì dùng key server."""
+    api_key/model (nếu có) truyền thẳng vào thread job — KHÔNG lưu DB; None → dùng mặc định server."""
     reap_orphans()  # dọn job mồ côi trước khi nhận việc mới (chặn khóa phòng vĩnh viễn)
     existing = active_job(project_id, room["ma"])
     if existing is not None:
@@ -62,15 +62,16 @@ def submit_takeoff(project_id, user_id, room, scope, api_key=None):
     db_session.add(job)
     db_session.commit()
     job_id = job.id
-    executor().submit(run_takeoff_job, job_id, room, scope, api_key)
+    executor().submit(run_takeoff_job, job_id, room, scope, api_key, model)
     return job, True
 
 
-def run_takeoff_job(job_id, room, scope, api_key=None):
+def run_takeoff_job(job_id, room, scope, api_key=None, model=None):
     """Chạy trong thread worker. Session thread-local riêng; luôn remove() ở cuối.
-    api_key chỉ tồn tại trong bộ nhớ thread (không ghi DB/log)."""
+    api_key/model chỉ tồn tại trong bộ nhớ thread (không ghi DB/log)."""
     # Import trong hàm để tránh vòng import (app.py import jobs ở top-level).
     from webapp.app import TAKEOFF_MODEL, do_takeoff, project_dir, slug, write_boq
+    model = model or TAKEOFF_MODEL
 
     try:
         job = db_session.get(TakeoffJob, job_id)
@@ -82,14 +83,14 @@ def run_takeoff_job(job_id, room, scope, api_key=None):
 
         project = db_session.get(Project, job.project_id)
         pdf_path = os.path.join(project_dir(project), "input", f"{slug(room['ma'])}.pdf")
-        # Key client gửi (bản test) nếu có; None → SDK đọc ANTHROPIC_API_KEY server-side.
-        rows, usage = do_takeoff(pdf_path, room, scope, TAKEOFF_MODEL, api_key)
+        # Key/model client gửi (bản test) nếu có; None → mặc định server-side.
+        rows, usage = do_takeoff(pdf_path, room, scope, model, api_key)
         write_boq(project, room["ma"], rows)  # atomic os.replace
 
         job = db_session.get(TakeoffJob, job_id)
         # H3: chỉ chốt 'done' nếu job VẪN đang running (reaper có thể đã đánh 'error' nếu quá TTL).
         if job is not None and job.status == "running":
-            job.model = TAKEOFF_MODEL
+            job.model = model
             job.input_tokens = usage.get("input", 0)
             job.output_tokens = usage.get("output", 0)
             job.status = "done"

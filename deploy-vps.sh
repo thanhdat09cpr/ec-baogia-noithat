@@ -58,8 +58,8 @@ if [ ! -f .env ] || ! grep -q '^SECRET_KEY=' .env; then
     echo "POSTGRES_DB=baogia"
     echo "DATABASE_URL=postgresql+psycopg://baogia:$PGPW@db:5432/baogia"
     echo "SECRET_KEY=$SECRET"
-    echo "ANTHROPIC_API_KEY="
-    echo "TAKEOFF_MODEL=claude-opus-4-8"
+    echo "OPENROUTER_API_KEY="
+    echo "TAKEOFF_MODEL=anthropic/claude-opus-4.8"
     echo "USD_VND_RATE=25000"
     # DOMAIN: subdomain Hostinger tu dong co cert (khong can tro DNS). Doi sang domain rieng neu da tro A record.
     echo "DOMAIN=baogia.srv1741374.hstgr.cloud"
@@ -98,5 +98,5 @@ if [ -n "$DOMAIN_VAL" ]; then
   echo "  TRUY CAP (HTTPS qua Traefik):  https://$DOMAIN_VAL"
   echo "  (cho ~30-60s de Traefik xin cert Let's Encrypt lan dau)"
 fi
-echo "  LUU Y: dien ANTHROPIC_API_KEY vao .env roi chay lai de bat AI boc tach."
+echo "  LUU Y: nhap OpenRouter key tren web (ban test) HOAC dien OPENROUTER_API_KEY vao .env de bat AI."
 echo "==============================================="

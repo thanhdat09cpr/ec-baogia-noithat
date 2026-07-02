@@ -70,9 +70,16 @@
           <table><thead><tr><th>Mã</th><th>Loại phòng</th><th>SL</th><th>Bản vẽ PDF</th><th></th></tr></thead>
             <tbody id="rooms"></tbody></table>
         </div>
-        <label class="fld" style="margin-top:14px">Anthropic API key <span class="muted">(bản test — lưu tại trình duyệt này)</span>
-          <input id="apiKey" type="password" placeholder="sk-ant-... (để trống nếu máy chủ đã cấu hình key chung)" autocomplete="off"></label>
-        <p class="hint" style="margin-top:6px">Key chỉ gửi kèm khi bóc tách, KHÔNG lưu trên máy chủ. Để trống → dùng key chung máy chủ (nếu có).</p>
+        <div class="form-grid" style="margin-top:14px">
+          <label class="fld">OpenRouter API key <span class="muted">(bản test — lưu tại trình duyệt)</span>
+            <input id="apiKey" type="password" placeholder="sk-or-... (trống = dùng key máy chủ nếu có)" autocomplete="off"></label>
+          <label class="fld">Model AI
+            <select id="model">
+              <option value="anthropic/claude-opus-4.8">Opus 4.8 — đọc bản vẽ tốt ($5/$25)</option>
+              <option value="openai/gpt-5.5">GPT-5.5 — nhanh ($5/$30)</option>
+            </select></label>
+        </div>
+        <p class="hint" style="margin-top:6px">Key &amp; model chỉ gửi kèm khi bóc tách, KHÔNG lưu trên máy chủ. Lấy key tại openrouter.ai/keys.</p>
         <div class="actions"><button class="btn ghost" id="addRoom">＋ Thêm loại phòng</button>
           <button class="btn" id="saveProject">Lưu &amp; sang bước 2 →</button></div>
       </div></div>

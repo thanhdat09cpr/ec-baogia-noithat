@@ -40,8 +40,9 @@ class Phase5FrontendApiTest(unittest.TestCase):
         self.assertIn('id="dashboard"', html)
         self.assertIn('data-w="5"', html)              # wizard 5 bước (app-shell mockup v3)
         self.assertIn('class="shell"', html)           # app-shell sidebar + topbar
-        self.assertNotIn('id="api_key"', html)         # N3: bỏ input key khỏi client
-        self.assertNotIn('id="model"', html)           # N3: bỏ chọn model khỏi client
+        # Bản test: client tự nhập OpenRouter key + chọn model (OpenRouter).
+        self.assertIn('id="apiKey"', html)             # ô nhập key trên web
+        self.assertIn('id="model"', html)              # dropdown chọn model
 
     def test_reopen_project_returns_config(self):
         pid = self.client.post("/api/project", json={
