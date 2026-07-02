@@ -33,7 +33,7 @@ bằng Docker. **KHÔNG đụng chất lượng bóc AI** (giai đoạn sau).
 ## Các giai đoạn
 | # | Giai đoạn | File | Trạng thái |
 |---|-----------|------|------------|
-| 1 | Chuẩn hóa chạy Linux/Docker (bỏ path Windows hardcode) | [phase-01](phase-01-chuan-hoa-linux-docker.md) | ⬜ |
+| 1 | Chuẩn hóa chạy Linux/Docker (bỏ path Windows hardcode) | [phase-01](phase-01-chuan-hoa-linux-docker.md) | ✅ (verified: test to_number + round-trip GĐ1/GĐ2 lệch 0) |
 | 2 | PostgreSQL + mô hình dữ liệu + tách dự án theo người | [phase-02](phase-02-database-va-mo-hinh.md) | ⬜ |
 | 3 | Đăng nhập Google OAuth + admin duyệt | [phase-03](phase-03-auth-google-admin-duyet.md) | ⬜ |
 | 4 | Bóc khối lượng chạy nền (job + tiến trình) | [phase-04-boc-chay-nen.md](phase-04-boc-chay-nen.md) | ⬜ |

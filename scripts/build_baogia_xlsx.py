@@ -188,14 +188,10 @@ def build_th(wb, cfg, room_refs):
     set_widths(th, [5, 42, 9, 22, 22, 24])
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("project")
-    ap.add_argument("--profit", type=float, default=None, help="ghi đè profit%% chung")
-    args = ap.parse_args()
-    project_dir = args.project.rstrip("\\/")
+def build(project_dir, profit=None):
+    project_dir = str(project_dir).rstrip("\\/")
     cfg = load_config(project_dir)
-    profit = args.profit if args.profit is not None else cfg["profit_percent"]
+    profit = profit if profit is not None else cfg["profit_percent"]
     print(f"Profit mặc định: {profit}% | VAT: {cfg['vat_percent']}% | "
           f"Preliminaries: {cfg.get('preliminaries_lumpsum'):,}")
 
@@ -250,7 +246,7 @@ def main():
             del wb[ws.title]
 
     if not room_refs:
-        sys.exit("Không có file 02-boq/*.csv.")
+        raise ValueError("Không có file 02-boq/*.csv.")
     build_th(wb, cfg, room_refs)
     out_dir = os.path.join(project_dir, "03-baogia")
     os.makedirs(out_dir, exist_ok=True)
@@ -260,6 +256,18 @@ def main():
         print(f"  Đã chèn {n_img} ảnh minh họa vào cột MINH HỌA.")
     if total_no_price:
         print(f"  Cảnh báo: {total_no_price} dòng CHƯA CÓ đơn giá NCC.")
+    return out, {"n_no_price": total_no_price, "n_img": n_img}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("project")
+    ap.add_argument("--profit", type=float, default=None, help="ghi đè profit%% chung")
+    args = ap.parse_args()
+    try:
+        build(args.project, args.profit)
+    except Exception as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":

@@ -21,18 +21,75 @@ THIN = Side(style="thin", color="BFBFBF")
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 
 
+def _looks_like_float_artifact(frac):
+    if len(frac) <= 2:
+        return False
+    stripped = frac.rstrip("0")
+    if not stripped:
+        return True
+    if set(frac) == {"9"}:
+        return True
+    return frac.startswith("000000") or frac.startswith("999999")
+
+
 def to_number(v):
     if v is None or v == "":
         return None
     if isinstance(v, (int, float)):
         return float(v)
-    s = re.sub(r"[^\d.,-]", "", str(v)).replace(" ", "")
+    s = re.sub(r"\s+", "", str(v))
+    s = re.sub(r"[^\d.,-]", "", s)
     if not s:
         return None
-    if s.count(",") and s.count("."):
-        s = s.replace(",", "")
-    elif s.count(","):
-        s = s.replace(".", "").replace(",", ".")
+    neg = s.startswith("-")
+    s = s.replace("-", "")
+    if re.fullmatch(r"\d{1,3}([.,]\d{3})+", s):
+        s = re.sub(r"[.,]", "", s)
+    elif s.count(".") + s.count(",") == 1:
+        sep = "." if "." in s else ","
+        whole, frac = s.rsplit(sep, 1)
+        if not whole.isdigit() or not frac.isdigit():
+            return None
+        if len(frac) <= 2 or (sep == "." and len(whole) > 3 and _looks_like_float_artifact(frac)):
+            s = whole + "." + frac
+        else:
+            return None
+    elif not s.isdigit():
+        return None
+    if neg:
+        s = "-" + s
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def to_quantity(v):
+    if v is None or v == "":
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = re.sub(r"\s+", "", str(v))
+    s = re.sub(r"[^\d.,-]", "", s)
+    if not s:
+        return None
+    neg = s.startswith("-")
+    s = s.replace("-", "")
+    if s.count(".") + s.count(",") == 1:
+        sep = "." if "." in s else ","
+        whole, frac = s.rsplit(sep, 1)
+        if whole.isdigit() and frac.isdigit() and len(frac) <= 3:
+            s = whole + "." + frac
+        elif re.fullmatch(r"\d{1,3}([.,]\d{3})+", s):
+            s = re.sub(r"[.,]", "", s)
+        else:
+            return None
+    elif re.fullmatch(r"\d{1,3}([.,]\d{3})+", s):
+        s = re.sub(r"[.,]", "", s)
+    elif not s.isdigit():
+        return None
+    if neg:
+        s = "-" + s
     try:
         return float(s)
     except ValueError:
@@ -42,7 +99,7 @@ def to_number(v):
 def load_config(project_dir):
     p = os.path.join(project_dir, "cau-hinh.json")
     if not os.path.exists(p):
-        raise SystemExit(f"Thieu {p}. Copy tu templates/cau-hinh.mau.json va chinh.")
+        raise FileNotFoundError(f"Thieu {p}. Copy tu templates/cau-hinh.mau.json va chinh.")
     with open(p, encoding="utf-8-sig") as f:
         cfg = json.load(f)
     cfg.setdefault("profit_percent", 10)
@@ -62,7 +119,7 @@ def load_room_rows(project_dir, ma):
     with open(p, encoding="utf-8-sig") as f:
         for r in csv.DictReader(f):
             r = {k: (r.get(k) or "").strip() for k in r}
-            r["_kl"] = to_number(r.get("kl_1phong"))
+            r["_kl"] = to_quantity(r.get("kl_1phong"))
             r["_gia_ncc"] = to_number(r.get("don_gia_ncc"))
             r["_profit_override"] = to_number(r.get("profit_override"))
             rows.append(r)

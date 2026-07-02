@@ -108,10 +108,8 @@ def append_room(ws, cfg, phong, rows, row, images=None):
     return row + 2, total_row, stt
 
 
-def main():
-    if len(sys.argv) < 2:
-        sys.exit("Dùng: python scripts/build_boq_xlsx.py <project_dir>")
-    project_dir = sys.argv[1].rstrip("\\/")
+def build(project_dir):
+    project_dir = str(project_dir).rstrip("\\/")
     cfg = load_config(project_dir)
     wb = Workbook()
     wb.remove(wb.active)
@@ -128,6 +126,7 @@ def main():
         floor_rooms[floor].append(phong)
 
     missing = []
+    total_no_price = 0
     n_img = 0
     for floor in floors:
         ws, row = create_floor_sheet(wb, cfg, floor)
@@ -139,6 +138,7 @@ def main():
             if rows is None:
                 missing.append(phong["ma"])
                 continue
+            total_no_price += sum(1 for r in rows if r.get("_gia_ncc") is None)
             images = load_image_map(project_dir, phong["ma"])
             row, total_row, count = append_room(ws, cfg, phong, rows, row, images)
             total_rows.append(total_row)
@@ -162,7 +162,7 @@ def main():
             del wb[ws.title]
 
     if not wb.sheetnames:
-        sys.exit(f"Không có file 02-boq/*.csv. Thiếu: {missing}")
+        raise ValueError(f"Không có file 02-boq/*.csv. Thiếu: {missing}")
     out = safe_save(wb, os.path.join(out_dir, "moi-thau.xlsx"))
     print(f"\n[GĐ1] File mời thầu (trống giá) -> {out}")
     if n_img:
@@ -170,6 +170,16 @@ def main():
     if missing:
         print(f"  (Chưa có BOQ cho phòng: {missing})")
     print("  Gửi file này cho nhà thầu phụ điền cột ĐƠN GIÁ. KHÔNG chứa profit.")
+    return out, {"n_no_price": total_no_price, "n_img": n_img}
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit("Dùng: python scripts/build_boq_xlsx.py <project_dir>")
+    try:
+        build(sys.argv[1])
+    except Exception as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":

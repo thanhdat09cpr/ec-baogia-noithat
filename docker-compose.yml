@@ -1,0 +1,11 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: webapp/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./projects:/app/projects
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

@@ -190,7 +190,7 @@ $("#buildMoiThau").onclick=async()=>{
   const d=await (await fetch("/api/moi-thau",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({project:state.project})})).json();
   $("#moiThauOut").innerHTML = d.ok
-    ? `<a class="dl" href="${d.download}">⬇ Tải moi-thau.xlsx</a><pre class="log">${esc(d.log)}</pre>`
+    ? `<a class="dl" href="${d.download}">⬇ Tải moi-thau.xlsx</a>`
     : `<pre class="log">${esc(d.error)}</pre>`;
   b.disabled=false;
 };
@@ -203,7 +203,7 @@ $("#buildBaoGia").onclick=async()=>{
     body:JSON.stringify({project:state.project, profit_percent:$("#profit").value,
       vat_percent:$("#vat").value, preliminaries_lumpsum:$("#prelim").value})})).json();
   $("#baoGiaOut").innerHTML = d.ok
-    ? `<a class="dl" href="${d.download}">⬇ Tải bao-gia-noi-bo.xlsx</a><pre class="log">${esc(d.log)}</pre>`
+    ? `<a class="dl" href="${d.download}">⬇ Tải bao-gia-noi-bo.xlsx</a>`
     : `<pre class="log">${esc(d.error)}</pre>`;
   b.disabled=false;
 };

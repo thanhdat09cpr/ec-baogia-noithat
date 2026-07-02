@@ -1,3 +1,13 @@
 # Thư viện cho web app báo giá nội thất (ngoài requirements.txt gốc)
 flask>=3.0
 anthropic>=0.69    # Claude API: vision/PDF + structured output (output_config)
+gunicorn>=22.0
+
+# --- Đa người dùng (ORM + migration + quản lý phiên/đăng nhập) ---
+SQLAlchemy>=2.0     # ORM: User / Project / TakeoffJob; DATABASE_URL (SQLite dev, Postgres prod)
+psycopg[binary]>=3.1  # driver Postgres cho bản deploy (SQLite không cần)
+alembic>=1.13       # migration versioned, chạy one-shot trước gunicorn
+Flask-Login>=0.6    # giữ phiên đăng nhập
+Authlib>=1.3        # Google OIDC (state+nonce)
+Flask-WTF>=1.2      # CSRF cho mọi POST mutation
+Flask-Limiter>=3.5  # rate-limit login + takeoff

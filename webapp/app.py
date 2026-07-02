@@ -7,17 +7,29 @@ Luồng wizard 4 bước:
   3. Xuất file mời thầu (đơn giá trống) để gửi nhà thầu phụ
   4. Nhập đơn giá NCC + profit -> xuất báo giá nội bộ (TH + VAT)
 
-Chạy:  .venv\Scripts\python.exe webapp\app.py   (mở http://127.0.0.1:5000)
+Chay:  python webapp/app.py   (mo http://127.0.0.1:5000)
 """
-import os, re, csv, json, base64, subprocess, sys
+import base64
+import contextlib
+import csv
+import io
+import json
+import math
+import os
+import re
+import sys
+import threading
 
-from flask import (Flask, request, jsonify, send_file, send_from_directory,
-                   render_template)
+from flask import Flask, jsonify, render_template, request, send_from_directory
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VPY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
+from scripts import build_baogia_xlsx, build_boq_xlsx  # noqa: E402
+
 PROJECTS = os.path.join(ROOT, "projects")
-SCRIPTS = os.path.join(ROOT, "scripts")
+BUILD_LOCK = threading.RLock()
 CSV_COLS = ["nhom_ma", "nhom_ten", "hang_muc", "quy_cach", "don_vi",
             "kl_1phong", "don_gia_ncc", "do_tin_cay", "ghi_chu"]
 
@@ -67,12 +79,16 @@ def load_catalog():
     return out
 
 
-def run_script(script, *args):
-    cmd = [VPY, os.path.join(SCRIPTS, script), *args]
-    env = dict(os.environ, PYTHONIOENCODING="utf-8")
-    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                       env=env, cwd=ROOT)
-    return r.returncode, (r.stdout or "") + (r.stderr or "")
+def run_builder(builder, *args, **kwargs):
+    buf = io.StringIO()
+    with BUILD_LOCK:
+        # Builder scripts still print progress; stdout capture is process-global.
+        with contextlib.redirect_stdout(buf):
+            out_path, stats = builder(*args, **kwargs)
+    log_output = buf.getvalue()
+    if log_output:
+        app.logger.info("Build output:\n%s", log_output.rstrip())
+    return out_path, stats
 
 
 # ---------------- takeoff (Claude API) ----------------
@@ -250,7 +266,10 @@ def api_takeoff():
             return jsonify({"ok": False, "error":
                 "Lỗi xác thực Anthropic API. Nhập API key hoặc đặt ANTHROPIC_API_KEY / "
                 "đăng nhập 'ant auth login'."}), 401
-        return jsonify({"ok": False, "error": f"{type(e).__name__}: {e}"}), 500
+        app.logger.exception("Bóc khối lượng lỗi cho project=%s room=%s",
+                             project, room.get("ma"))
+        return jsonify({"ok": False, "error":
+                        "Không bóc được khối lượng. Kiểm tra PDF, model và cấu hình API."}), 500
     write_boq(project, room["ma"], rows)
     return jsonify({"ok": True, "rows": rows, "usage": usage})
 
@@ -266,32 +285,51 @@ def api_boq():
 
 @app.route("/api/moi-thau", methods=["POST"])
 def api_moi_thau():
-    project = request.json["project"]
-    code, out = run_script("build_boq_xlsx.py", pdir(project))
-    if code != 0:
-        return jsonify({"ok": False, "error": out}), 500
-    return jsonify({"ok": True, "log": out,
+    d = request.get_json(silent=True) or {}
+    project = d.get("project")
+    if not project:
+        return jsonify({"ok": False, "error": "Thiếu mã dự án."}), 400
+    try:
+        _out_path, stats = run_builder(build_boq_xlsx.build, pdir(project))
+    except Exception:
+        app.logger.exception("Không xuất được file mời thầu cho project=%s", project)
+        return jsonify({"ok": False, "error":
+                        "Không xuất được file mời thầu. Kiểm tra cấu hình dự án và BOQ."}), 500
+    return jsonify({"ok": True, "stats": stats,
                     "download": f"/api/download/{project}/moi-thau.xlsx"})
 
 
 @app.route("/api/bao-gia", methods=["POST"])
 def api_bao_gia():
-    d = request.json
-    project = d["project"]
-    # cap nhat config (profit/preliminaries/vat)
-    P = pdir(project)
-    cfgp = os.path.join(P, "cau-hinh.json")
-    with open(cfgp, encoding="utf-8-sig") as f:
-        cfg = json.load(f)
-    for k in ("profit_percent", "vat_percent", "preliminaries_lumpsum"):
-        if k in d:
-            cfg[k] = float(d[k])
-    with open(cfgp, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
-    code, out = run_script("build_baogia_xlsx.py", P)
-    if code != 0:
-        return jsonify({"ok": False, "error": out}), 500
-    return jsonify({"ok": True, "log": out,
+    d = request.get_json(silent=True) or {}
+    project = d.get("project")
+    if not project:
+        return jsonify({"ok": False, "error": "Thiếu mã dự án."}), 400
+    try:
+        # Config update and build must be atomic for one-process threaded gunicorn.
+        with BUILD_LOCK:
+            P = pdir(project)
+            cfgp = os.path.join(P, "cau-hinh.json")
+            with open(cfgp, encoding="utf-8-sig") as f:
+                cfg = json.load(f)
+            for k in ("profit_percent", "vat_percent", "preliminaries_lumpsum"):
+                if k in d:
+                    value = float(d[k])
+                    if not math.isfinite(value):
+                        raise ValueError(f"{k} must be finite")
+                    cfg[k] = value
+            with open(cfgp, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, ensure_ascii=False, indent=2)
+            _out_path, stats = run_builder(build_baogia_xlsx.build, P)
+    except (FileNotFoundError, ValueError, TypeError, json.JSONDecodeError):
+        app.logger.exception("Dữ liệu báo giá không hợp lệ cho project=%s", project)
+        return jsonify({"ok": False, "error":
+                        "Không xuất được báo giá nội bộ. Kiểm tra dữ liệu dự án và số nhập."}), 400
+    except Exception:
+        app.logger.exception("Không xuất được báo giá nội bộ cho project=%s", project)
+        return jsonify({"ok": False, "error":
+                        "Không xuất được báo giá nội bộ. Kiểm tra đơn giá NCC, profit và cấu hình."}), 500
+    return jsonify({"ok": True, "stats": stats,
                     "download": f"/api/download/{project}/bao-gia-noi-bo.xlsx"})
 
 

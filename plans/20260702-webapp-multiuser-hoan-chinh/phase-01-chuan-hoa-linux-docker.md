@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Chuẩn hóa chạy Linux/Docker"
-status: pending
+status: done
 priority: P1
 effort: "0.5d"
 dependencies: []
