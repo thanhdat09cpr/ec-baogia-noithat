@@ -1,0 +1,3 @@
+# Bắt buộc LF cho shell script (chạy trên Linux/VPS qua curl|bash — tránh lỗi \r).
+*.sh text eol=lf
+deploy-vps.sh text eol=lf
