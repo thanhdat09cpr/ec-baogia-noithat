@@ -1,0 +1,6 @@
+# Thư viện cho agent khái toán từ bản vẽ PDF
+PyMuPDF>=1.24      # trích text + toạ độ + render ảnh trang (import: fitz)
+pdfplumber>=0.11   # trích bảng / dòng kích thước dạng text
+openpyxl>=3.1      # đọc file đơn giá Excel + ghi Excel khái toán (giữ công thức)
+pandas>=2.0        # xử lý bảng BOQ / đơn giá
+rapidfuzz>=3.0     # fuzzy match mô tả công tác -> mã đơn giá

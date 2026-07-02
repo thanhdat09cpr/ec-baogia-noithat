@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E&C — Báo giá nội thất tự động</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">E&C</div>
+    <div>
+      <h1>Báo giá fit-out nội thất từ bản vẽ PDF</h1>
+      <p class="sub">Bóc khối lượng tự động bằng AI · file mời thầu · áp giá NCC + profit</p>
+    </div>
+  </div>
+</header>
+
+<nav class="stepper">
+  <button class="step active" data-step="1"><b>1</b> Dự án &amp; bản vẽ</button>
+  <button class="step" data-step="2"><b>2</b> Bóc khối lượng (AI)</button>
+  <button class="step" data-step="3"><b>3</b> File mời thầu</button>
+  <button class="step" data-step="4"><b>4</b> Báo giá nội bộ</button>
+</nav>
+
+<main>
+  <!-- STEP 1 -->
+  <section class="panel active" id="panel-1">
+    <h2>1 · Thông tin dự án &amp; tải bản vẽ</h2>
+    <div class="grid2">
+      <label>Tên dự án <input id="du_an" value="Khách sạn Handwritten Hà Nội"></label>
+      <label>Địa điểm <input id="dia_diem" value="68 Thợ Nhuộm, Hà Nội"></label>
+    </div>
+    <label>Hạng mục <input id="hang_muc" value="THI CÔNG HOÀN THIỆN NỘI THẤT GUESTROOM"></label>
+
+    <div class="grid2">
+      <label>Model AI
+        <select id="model">
+          {% for id, name in models.items() %}
+          <option value="{{id}}">{{name}}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Anthropic API key <span class="hint">(để trống nếu đã đặt ANTHROPIC_API_KEY / ant login)</span>
+        <input id="api_key" type="password" placeholder="sk-ant-…">
+      </label>
+    </div>
+
+    <h3>Phạm vi báo giá (nhóm hạng mục)</h3>
+    <div id="scope" class="chips"></div>
+
+    <h3>Các loại phòng + bản vẽ PDF</h3>
+    <table class="rooms">
+      <thead><tr><th>Mã</th><th>Tên loại phòng</th><th>SL phòng</th><th>Bản vẽ PDF</th><th></th></tr></thead>
+      <tbody id="rooms"></tbody>
+    </table>
+    <button class="ghost" id="addRoom">+ Thêm loại phòng</button>
+
+    <div class="actions">
+      <button class="primary" id="saveProject">Lưu dự án &amp; sang bước 2 →</button>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" id="panel-2">
+    <h2>2 · Bóc khối lượng tự động (AI đọc bản vẽ)</h2>
+    <p class="note">AI đọc PDF từng loại phòng và lập bảng khối lượng. <b>Bạn duyệt/sửa</b> trước
+      khi sang bước sau. Cột <b>Đơn giá NCC</b> để trống ở bước này — điền sau khi nhà thầu phụ chào giá.</p>
+    <div id="roomTabs" class="tabs"></div>
+    <div id="boqArea"></div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" id="panel-3">
+    <h2>3 · Xuất file mời thầu (đơn giá trống)</h2>
+    <p class="note">File gửi nhà thầu phụ điền đơn giá. <b>Không chứa profit.</b></p>
+    <button class="primary" id="buildMoiThau">Xuất moi-thau.xlsx</button>
+    <div id="moiThauOut" class="result"></div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="panel" id="panel-4">
+    <h2>4 · Áp giá NCC + profit → báo giá nội bộ</h2>
+    <p class="note">Sau khi nhà thầu phụ chào giá, điền <b>Đơn giá NCC</b> vào bảng ở bước 2 (nhớ Lưu),
+      rồi xuất báo giá nội bộ. Đơn giá báo giá = NCC × (1 + profit%).</p>
+    <div class="grid3">
+      <label>Profit (%) <input id="profit" type="number" value="10" step="0.5"></label>
+      <label>VAT (%) <input id="vat" type="number" value="8" step="0.5"></label>
+      <label>Preliminaries (trọn gói, VND) <input id="prelim" type="number" value="0"></label>
+    </div>
+    <button class="primary" id="buildBaoGia">Xuất bao-gia-noi-bo.xlsx</button>
+    <div id="baoGiaOut" class="result"></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

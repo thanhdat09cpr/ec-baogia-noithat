@@ -1,0 +1,20 @@
+{
+  "du_an": "KHÁCH SẠN HANDWRITTEN HÀ NỘI THỢ NHUỘM",
+  "dia_diem": "68 Thợ Nhuộm, Phường Cửa Nam, TP Hà Nội",
+  "hang_muc": "THI CÔNG HOÀN THIỆN NỘI THẤT GUESTROOM",
+  "profit_percent": 10,
+  "vat_percent": 8,
+  "preliminaries_lumpsum": 0,
+  "preliminaries_ten": "CÔNG TÁC CHUẨN BỊ (PRELIMINARIES)",
+  "scope": ["I.1", "I.2", "I.3", "I.4", "I.5"],
+  "ghi_chu_scope": "Thêm I.6/I.7/I.8 nếu báo giá gồm hoàn thiện thô / TBVS / đèn-MEP",
+  "phong": [
+    {"ma": "GR1",  "ten": "GR1 - KING 1",   "so_luong": 5},
+    {"ma": "GR1A", "ten": "GR1A - KING 2",  "so_luong": 5},
+    {"ma": "GR1B", "ten": "GR1B - KING 3",  "so_luong": 5},
+    {"ma": "GR1C", "ten": "GR1C - KING 4",  "so_luong": 4},
+    {"ma": "GR2",  "ten": "GR2 - TWIN 1",   "so_luong": 5},
+    {"ma": "GR3",  "ten": "GR3 - TWIN 2",   "so_luong": 5},
+    {"ma": "GR4",  "ten": "GR4 - HANDICAP", "so_luong": 1}
+  ]
+}

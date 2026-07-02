@@ -1,0 +1,3 @@
+# Thư viện cho web app báo giá nội thất (ngoài requirements.txt gốc)
+flask>=3.0
+anthropic>=0.69    # Claude API: vision/PDF + structured output (output_config)

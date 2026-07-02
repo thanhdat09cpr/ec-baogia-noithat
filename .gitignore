@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Data & project files (large / generated)
+data/
+projects/
+*.xlsx
+*.pdf
+
+# Secrets
+.env
+*.env
+
+# OS
+.DS_Store
