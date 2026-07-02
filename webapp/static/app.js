@@ -117,6 +117,15 @@ function resetWizard(){
 // ---------------- scope chips ----------------
 let CATALOG_GROUPS = [];
 fetch("/api/catalog").then(r => r.json()).then(d => { CATALOG_GROUPS = d.groups || []; renderScope(); });
+
+// API key (bản test): lưu tại trình duyệt, gửi kèm khi bóc tách. KHÔNG lưu máy chủ.
+function getApiKey(){ return (localStorage.getItem("ec_api_key") || "").trim(); }
+(function initApiKey(){
+  const el = document.getElementById("apiKey");
+  if(!el) return;
+  el.value = getApiKey();
+  el.addEventListener("input", () => localStorage.setItem("ec_api_key", el.value.trim()));
+})();
 function renderScope(){
   const box = $("#scope"); if(!box) return; box.innerHTML = "";
   CATALOG_GROUPS.forEach(g => {
@@ -233,7 +242,7 @@ function runTakeoff(p){
   const btn = $("#runTakeoff"); btn.disabled = true;
   btn.innerHTML = '<span class="spin"></span>AI đang đọc bản vẽ… (1-3 phút)';
   const done = (label) => { btn.disabled = false; btn.textContent = label; };
-  postJSON("/api/takeoff", {project_id:state.project_id, room:p, scope:state.scope}).then(d => {
+  postJSON("/api/takeoff", {project_id:state.project_id, room:p, scope:state.scope, api_key:getApiKey()}).then(d => {
     if(!d.ok){ toast(d.error, "err"); done(`🤖 Bóc khối lượng phòng ${p.ma}`); return; }
     if(!d.created) toast("Phòng này đang được bóc, tiếp tục theo dõi…");
     pollJob(d.job_id, p, done);

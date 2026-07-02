@@ -70,7 +70,9 @@
           <table><thead><tr><th>Mã</th><th>Loại phòng</th><th>SL</th><th>Bản vẽ PDF</th><th></th></tr></thead>
             <tbody id="rooms"></tbody></table>
         </div>
-        <p class="hint" style="margin-top:10px">Model AI &amp; API key do quản trị viên cấu hình chung ở máy chủ — nhân viên không cần nhập.</p>
+        <label class="fld" style="margin-top:14px">Anthropic API key <span class="muted">(bản test — lưu tại trình duyệt này)</span>
+          <input id="apiKey" type="password" placeholder="sk-ant-... (để trống nếu máy chủ đã cấu hình key chung)" autocomplete="off"></label>
+        <p class="hint" style="margin-top:6px">Key chỉ gửi kèm khi bóc tách, KHÔNG lưu trên máy chủ. Để trống → dùng key chung máy chủ (nếu có).</p>
         <div class="actions"><button class="btn ghost" id="addRoom">＋ Thêm loại phòng</button>
           <button class="btn" id="saveProject">Lưu &amp; sang bước 2 →</button></div>
       </div></div>

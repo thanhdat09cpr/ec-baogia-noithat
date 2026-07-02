@@ -389,18 +389,21 @@ def api_pdf(project_id, ma):
 
 @app.route("/api/takeoff", methods=["POST"])
 def api_takeoff():
-    """Tạo JOB NỀN bóc khối lượng, trả job_id ngay (không block). N3: không nhận api_key/model."""
+    """Tạo JOB NỀN bóc khối lượng, trả job_id ngay (không block).
+    Bản test: client có thể gửi `api_key` — chỉ dùng trong job, KHÔNG lưu DB;
+    để trống thì fallback ANTHROPIC_API_KEY server-side."""
     d = request.get_json(silent=True) or {}
     room = d.get("room")
     if not d.get("project_id") or not isinstance(room, dict) or not room.get("ma"):
         return jsonify({"ok": False, "error": "Thiếu project_id / room.ma."}), 400
     p = load_project_or_403(d["project_id"])
     scope = d.get("scope", ["I.1", "I.2", "I.3", "I.4", "I.5"])
+    api_key = (d.get("api_key") or "").strip() or None
     pdf_path = os.path.join(project_dir(p), "input", f"{slug(room['ma'])}.pdf")
     if not os.path.exists(pdf_path):
         return jsonify({"ok": False, "error": "Chưa upload PDF cho phòng này."}), 400
     u = current_user()
-    job, created = jobs.submit_takeoff(p.id, u.id, room, scope)
+    job, created = jobs.submit_takeoff(p.id, u.id, room, scope, api_key)
     return jsonify({"ok": True, "job_id": job.id, "status": job.status, "created": created})
 
 
