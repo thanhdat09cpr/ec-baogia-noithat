@@ -266,6 +266,20 @@ function pollJob(jobId, p, done){
 }
 
 // ---------------- BOQ table ----------------
+// 1 dòng hạng mục (chế độ duyệt KL) — dùng chung cho dòng AI + dòng thêm tay.
+function itemRowHtml(r){
+  const tc = r.do_tin_cay || "cao";
+  return `<tr data-nhom="${attr(r.nhom_ma||"")}" data-nten="${attr(r.nhom_ten||"")}">
+    <td class="locked"><input data-k="hang_muc" value="${attr(r.hang_muc||"")}" placeholder="tên hạng mục"></td>
+    <td><input data-k="quy_cach" value="${attr(r.quy_cach||"")}" placeholder="quy cách"></td>
+    <td><input data-k="don_vi" value="${attr(r.don_vi||"")}" style="width:70px" placeholder="ĐVT"></td>
+    <td class="qty qty-cell"><input data-k="kl_1phong" value="${attr(r.kl_1phong||"")}"></td>
+    <td><select data-k="do_tin_cay" class="tc-${tc}">
+      ${["cao","trung_binh","thap"].map(o=>`<option ${o==tc?"selected":""}>${o}</option>`).join("")}</select></td>
+    <td><label class="chip neut img-btn" title="Tải ảnh minh họa">
+      <span class="lbl">ảnh</span><input type="file" accept="image/*" hidden></label></td></tr>`;
+}
+
 function renderBoq(p, rows, mount, priceMode){
   const globalProfit = parseFloat($("#profit").value) || 0;
   let h, lastGrp = null;
@@ -278,7 +292,7 @@ function renderBoq(p, rows, mount, priceMode){
   }
   rows.forEach(r => {
     if(r.nhom_ma !== lastGrp){ lastGrp = r.nhom_ma;
-      h += `<tr class="grp"><td colspan="6">${esc(r.nhom_ma)} · ${esc((r.nhom_ten||"").toUpperCase())}</td></tr>`; }
+      h += `<tr class="grp" data-grp="${attr(r.nhom_ma)}" data-gten="${attr(r.nhom_ten)}"><td colspan="6">${esc(r.nhom_ma)} · ${esc((r.nhom_ten||"").toUpperCase())}</td></tr>`; }
     const base = `data-nhom="${attr(r.nhom_ma)}" data-nten="${attr(r.nhom_ten)}"`;
     if(priceMode){
       const noPrice = !String(r.don_gia_ncc||"").trim();
@@ -292,16 +306,7 @@ function renderBoq(p, rows, mount, priceMode){
         <td class="qty"><input data-k="profit_override" value="${attr(r.profit_override||"")}" placeholder="${globalProfit}" style="width:70px"></td>
         <td class="sell">${fmtVN(sell)}</td></tr>`;
     } else {
-      const tc = r.do_tin_cay || "cao";
-      h += `<tr ${base}>
-        <td class="locked"><input data-k="hang_muc" value="${attr(r.hang_muc||"")}"></td>
-        <td><input data-k="quy_cach" value="${attr(r.quy_cach||"")}"></td>
-        <td><input data-k="don_vi" value="${attr(r.don_vi||"")}" style="width:70px"></td>
-        <td class="qty qty-cell"><input data-k="kl_1phong" value="${attr(r.kl_1phong||"")}"></td>
-        <td><select data-k="do_tin_cay" class="tc-${tc}">
-          ${["cao","trung_binh","thap"].map(o=>`<option ${o==tc?"selected":""}>${o}</option>`).join("")}</select></td>
-        <td><label class="chip neut img-btn" data-hm="${attr(r.hang_muc||"")}" title="Tải ảnh minh họa">
-          <span class="lbl">ảnh</span><input type="file" accept="image/*" hidden></label></td></tr>`;
+      h += itemRowHtml(r);
     }
   });
   h += `</tbody></table>`;
@@ -310,39 +315,85 @@ function renderBoq(p, rows, mount, priceMode){
   if(mount.nextElementSibling && mount.nextElementSibling.classList.contains("actions"))
     mount.nextElementSibling.remove();
   const wrap = document.createElement("div"); wrap.className = "actions";
-  wrap.innerHTML = `<button class="btn ghost" data-save="1">💾 Lưu ${priceMode?"giá":"khối lượng"}</button>`;
+  let addHtml = "";
+  if(!priceMode){
+    // Nhóm để thêm tay = scope dự án (kể cả nhóm AI bỏ sót cả cụm).
+    const groups = (state.scope && state.scope.length ? state.scope : (CATALOG_GROUPS||[]).map(g=>g.ma));
+    const opts = groups.map(ma => {
+      const g = (CATALOG_GROUPS||[]).find(x => x.ma === ma);
+      return `<option value="${attr(ma)}">${esc(ma)}${g?" · "+esc(g.ten):""}</option>`;
+    }).join("");
+    addHtml = `<span style="margin-left:auto;display:inline-flex;gap:8px;align-items:center">
+      <span class="hint">Thiếu hạng mục?</span>
+      <select id="addGrpSel">${opts}</select>
+      <button class="btn ghost" data-addrow="1">＋ Thêm dòng</button></span>`;
+  }
+  wrap.innerHTML = `<button class="btn ghost" data-save="1">💾 Lưu ${priceMode?"giá":"khối lượng"}</button>${addHtml}`;
   mount.after(wrap);
-  $$("select", mount).forEach(s => s.onchange = () => s.className = "tc-" + s.value);
+  $$("select[data-k='do_tin_cay']", mount).forEach(s => s.onchange = () => s.className = "tc-" + s.value);
   $$("input[data-k='profit_override'],input[data-k='don_gia_ncc']", mount).forEach(inp =>
     inp.oninput = () => recalcSell(inp.closest("tr")));
   wrap.querySelector("[data-save]").onclick = () => saveBoq(p, mount, priceMode);
-  if(!priceMode) wireImageButtons(p, mount);
+  if(!priceMode){
+    wireImageButtons(p, mount);
+    wrap.querySelector("[data-addrow]").onclick = () => {
+      const sel = wrap.querySelector("#addGrpSel");
+      const ma = sel.value;
+      const g = (CATALOG_GROUPS||[]).find(x => x.ma === ma);
+      addBoqRow(p, mount, ma, g ? g.ten : ma);
+    };
+  }
 }
 
-// Minh họa: nút "ảnh" mở chọn file → upload → đánh dấu ✓ (chèn vào Excel khi xuất).
+// Thêm 1 dòng hạng mục trống vào nhóm `ma` — chèn dưới nhóm (tạo header nếu chưa có).
+function addBoqRow(p, mount, ma, ten){
+  const tbody = mount.querySelector("tbody");
+  const tmp = document.createElement("tbody");
+  tmp.innerHTML = itemRowHtml({nhom_ma:ma, nhom_ten:ten});
+  const tr = tmp.firstElementChild;
+  // tìm header nhóm + dòng cuối của nhóm để chèn sau; nếu chưa có nhóm -> tạo header ở cuối.
+  const rowsOfGrp = $$(`tr[data-nhom="${ma}"]`, mount);
+  if(rowsOfGrp.length){
+    rowsOfGrp[rowsOfGrp.length-1].after(tr);
+  } else {
+    const hdr = document.createElement("tr");
+    hdr.className = "grp"; hdr.dataset.grp = ma; hdr.dataset.gten = ten;
+    hdr.innerHTML = `<td colspan="6">${esc(ma)} · ${esc((ten||"").toUpperCase())}</td>`;
+    tbody.append(hdr); tbody.append(tr);
+  }
+  tr.querySelector("select[data-k='do_tin_cay']").onchange = function(){ this.className = "tc-" + this.value; };
+  wireOneImageButton(p, tr.querySelector(".img-btn"));
+  tr.querySelector("input[data-k='hang_muc']").focus();
+}
+
+// Minh họa: nút "ảnh" mở chọn file → upload theo hạng mục → đánh dấu ✓ (chèn Excel khi xuất).
+function imgHmOf(b){ const i = b.closest("tr")?.querySelector("input[data-k='hang_muc']"); return i ? i.value.trim() : ""; }
+function markImg(b){ b.querySelector(".lbl").textContent = "✓ ảnh"; b.style.color = "#166534"; b.style.borderColor = "#166534"; }
+function wireOneImageButton(p, b){
+  const inp = b.querySelector("input");
+  inp.onchange = async () => {
+    if(!inp.files[0]) return;
+    const hm = imgHmOf(b);
+    if(!hm){ toast("Nhập tên hạng mục trước khi thêm ảnh", "err"); inp.value = ""; return; }
+    const fd = new FormData();
+    fd.append("project_id", state.project_id); fd.append("ma", p.ma);
+    fd.append("hang_muc", hm); fd.append("image", inp.files[0]);
+    b.querySelector(".lbl").textContent = "…";
+    try{
+      const r = await (await fetch("/api/boq-image", {method:"POST", body:fd})).json();
+      if(r.ok){ markImg(b); toast("Đã thêm ảnh minh họa ✓", "ok"); }
+      else { b.querySelector(".lbl").textContent = "ảnh"; toast(r.error || "Lỗi upload ảnh", "err"); }
+    }catch(e){ b.querySelector(".lbl").textContent = "ảnh"; toast("Lỗi: " + e, "err"); }
+    inp.value = "";
+  };
+}
 function wireImageButtons(p, mount){
-  const mark = (b) => { b.querySelector(".lbl").textContent = "✓ ảnh"; b.style.color = "#166534"; b.style.borderColor = "#166534"; };
   fetch(`/api/boq-images?project_id=${enc(state.project_id)}&ma=${enc(p.ma)}`)
     .then(r => r.json()).then(d => {
       const set = new Set(d.images || []);
-      $$(".img-btn", mount).forEach(b => { if(set.has(b.dataset.hm)) mark(b); });
+      $$(".img-btn", mount).forEach(b => { if(set.has(imgHmOf(b))) markImg(b); });
     }).catch(() => {});
-  $$(".img-btn", mount).forEach(b => {
-    const inp = b.querySelector("input");
-    inp.onchange = async () => {
-      if(!inp.files[0]) return;
-      const fd = new FormData();
-      fd.append("project_id", state.project_id); fd.append("ma", p.ma);
-      fd.append("hang_muc", b.dataset.hm); fd.append("image", inp.files[0]);
-      b.querySelector(".lbl").textContent = "…";
-      try{
-        const r = await (await fetch("/api/boq-image", {method:"POST", body:fd})).json();
-        if(r.ok){ mark(b); toast("Đã thêm ảnh minh họa ✓", "ok"); }
-        else { b.querySelector(".lbl").textContent = "ảnh"; toast(r.error || "Lỗi upload ảnh", "err"); }
-      }catch(e){ b.querySelector(".lbl").textContent = "ảnh"; toast("Lỗi: " + e, "err"); }
-      inp.value = "";
-    };
-  });
+  $$(".img-btn", mount).forEach(b => wireOneImageButton(p, b));
 }
 
 function recalcSell(tr){
@@ -370,7 +421,7 @@ async function saveBoq(p, mount, priceMode){
       const o = {nhom_ma: tr.dataset.nhom, nhom_ten: tr.dataset.nten};
       tr.querySelectorAll("[data-k]").forEach(el => o[el.dataset.k] = el.value);
       return o;
-    });
+    }).filter(o => (o.hang_muc || "").trim());   // bỏ dòng thêm tay còn trống
     await postJSON("/api/boq", {project_id:state.project_id, ma:p.ma, rows});
   }
   toast(`Đã lưu ${priceMode?"giá":"khối lượng"} ✓`, "ok");
