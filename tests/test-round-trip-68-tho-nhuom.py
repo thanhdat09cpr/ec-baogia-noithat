@@ -29,15 +29,20 @@ def _make_project(csv_name):
     return tmp, project
 
 
+# Layout báo giá nội bộ (build_baogia_xlsx): KHỐI LƯỢNG = cột 8, ĐƠN GIÁ = cột 10.
+BAOGIA_KL_COL = 8
+BAOGIA_DONGIA_COL = 10
+
+
 def _item_total(path):
     wb = load_workbook(path, data_only=False)
     ws = wb["KHÁC"]
     total = 0
     for row in range(1, ws.max_row + 1):
         if isinstance(ws.cell(row, 1).value, int):
-            quantity = ws.cell(row, 6).value or 0
+            quantity = ws.cell(row, BAOGIA_KL_COL).value or 0
             room_count = 5
-            price = ws.cell(row, 8).value or 0
+            price = ws.cell(row, BAOGIA_DONGIA_COL).value or 0
             total += quantity * room_count * price
     return total
 
@@ -52,13 +57,14 @@ class RoundTrip68ThoNhuomTest(unittest.TestCase):
 
             wb = load_workbook(out_path, data_only=False)
             ws = wb["KHÁC"]
+            # File mời thầu: ĐG VẬT LIỆU (cột 10) + ĐG NHÂN CÔNG (cột 11) để NCC điền -> trống.
             prices = [
-                ws.cell(row, 8).value
+                (ws.cell(row, 10).value, ws.cell(row, 11).value)
                 for row in range(1, ws.max_row + 1)
                 if isinstance(ws.cell(row, 1).value, int)
             ]
             self.assertTrue(prices)
-            self.assertTrue(all(value is None for value in prices))
+            self.assertTrue(all(vl is None and nc is None for vl, nc in prices))
 
     def test_bao_gia_round_trip_reference_total_without_profit(self):
         tmp, project = _make_project("GR1.thuc-tham-chieu.csv")

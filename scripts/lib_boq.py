@@ -7,8 +7,12 @@ import os, re, csv, json
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 
-CSV_COLS = ["nhom_ma", "nhom_ten", "hang_muc", "quy_cach", "don_vi",
-            "kl_1phong", "don_gia_ncc", "do_tin_cay", "ghi_chu"]
+# Schema BOQ chuẩn (13 cột). Cột giá tách VL+NC (NCC chào theo thành phần) hoặc
+# don_gia_ncc (trọn gói). ky_hieu = mã bản vẽ/spec; dien_giai = phân tích tính toán
+# (QĐ 451). Cột cũ (9 cột) vẫn đọc được — cột thiếu mặc định rỗng (tương thích ngược).
+CSV_COLS = ["nhom_ma", "nhom_ten", "ky_hieu", "hang_muc", "quy_cach", "don_vi",
+            "dien_giai", "kl_1phong", "don_gia_vl", "don_gia_nc", "don_gia_ncc",
+            "do_tin_cay", "ghi_chu"]
 
 MONEY = "#,##0"
 QTY = "#,##0.###"
@@ -110,6 +114,16 @@ def load_config(project_dir):
     return cfg
 
 
+def effective_ncc(gia_ncc, gia_vl, gia_nc):
+    """Gia NCC hieu dung: uu tien don_gia_ncc (tron goi); neu trong thi VL+NC.
+    Tra None neu chua co gia nao. (Dung cho ca file cu chi co don_gia_ncc.)"""
+    if gia_ncc is not None:
+        return gia_ncc
+    if gia_vl is not None or gia_nc is not None:
+        return (gia_vl or 0) + (gia_nc or 0)
+    return None
+
+
 def load_room_rows(project_dir, ma):
     """Doc 02-boq/<ma>.csv -> list dict (giu thu tu). Tra ve [] neu khong co file."""
     p = os.path.join(project_dir, "02-boq", f"{ma}.csv")
@@ -120,7 +134,11 @@ def load_room_rows(project_dir, ma):
         for r in csv.DictReader(f):
             r = {k: (r.get(k) or "").strip() for k in r}
             r["_kl"] = to_quantity(r.get("kl_1phong"))
+            r["_gia_vl"] = to_number(r.get("don_gia_vl"))
+            r["_gia_nc"] = to_number(r.get("don_gia_nc"))
             r["_gia_ncc"] = to_number(r.get("don_gia_ncc"))
+            # Gia NCC hieu dung (tron goi hoac VL+NC) — build_baogia dung cai nay.
+            r["_gia_eff"] = effective_ncc(r["_gia_ncc"], r["_gia_vl"], r["_gia_nc"])
             r["_profit_override"] = to_number(r.get("profit_override"))
             rows.append(r)
     return rows
@@ -179,7 +197,7 @@ def roman(n):
 
 # ---- Chen anh vao cot MINH HOA (crop vua du, fit trong o, khong vo bo cuc) ----
 MINHHOA_BOX = (122, 112)          # (rong, cao) px toi da cua o anh
-MINHHOA_COL_CHARS = 18.5          # be rong cot D (~130px) du chua anh
+MINHHOA_COL_CHARS = 18.5          # be rong cot MINH HOA (cot E, ~130px) du chua anh
 
 
 def minhhoa_col_width():
@@ -208,7 +226,7 @@ def _fit_image(path, box):
     return buf, w, h
 
 
-def place_image(ws, row, img_path, col_idx=4, box=MINHHOA_BOX):
+def place_image(ws, row, img_path, col_idx=5, box=MINHHOA_BOX):
     """Chen anh vao o (col_idx,row), can giua, va NOI RONG dong vua du anh.
     Tra True neu chen duoc. Neu file khong ton tai -> False (bo qua)."""
     if not img_path or not os.path.exists(img_path):

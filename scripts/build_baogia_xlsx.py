@@ -1,10 +1,10 @@
 """
 build_baogia_xlsx.py - GIAI ĐOẠN 2: xuất BÁO GIÁ NỘI BỘ (có profit).
 
-Từ cau-hinh.json + 02-boq/<phong>.csv (đã có don_gia_ncc) ->
-03-baogia/bao-gia-noi-bo.xlsx:
+Từ cau-hinh.json + 02-boq/<phong>.csv (đã có giá NCC) -> 03-baogia/bao-gia-noi-bo.xlsx:
   - Mỗi tầng 1 sheet, các phòng cùng tầng nằm liên tiếp trong sheet đó.
-  - Đơn giá = don_gia_ncc * (1 + profit%).
+  - giá_NCC = don_gia_ncc (trọn gói) hoặc don_gia_vl + don_gia_nc (chào tách).
+  - Đơn giá báo giá = giá_NCC * (1 + profit%). File nội bộ chỉ hiện 1 cột đơn giá (profit ẩn).
   - Sheet TH tổng hợp theo từng phòng + Preliminaries + VAT.
 
 Dùng:  python scripts/build_baogia_xlsx.py <project_dir> [--profit 10]
@@ -28,12 +28,23 @@ from lib_boq import (  # noqa: E402
 )
 from openpyxl.utils import get_column_letter  # noqa: E402
 
+# Cột (1-based) — báo giá nội bộ. 1 cột đơn giá (profit ẩn); có ký hiệu + diễn giải.
+C_STT, C_KYHIEU, C_HANGMUC, C_QUYCACH, C_MINHHOA, C_DVT, C_DIENGIAI, \
+    C_KL, C_TONGKL, C_DONGIA, C_TT1, C_TTDU, C_GHICHU = range(1, 14)
+NCOL = C_GHICHU
+
 HEADERS = [
-    "STT", "HẠNG MỤC / MÔ TẢ CÔNG VIỆC", "QUY CÁCH / THÔNG SỐ KỸ THUẬT",
-    "MINH HỌA", "ĐVT", "KHỐI LƯỢNG", "TỔNG KHỐI LƯỢNG", "ĐƠN GIÁ BÁO GIÁ (VND)",
-    "THÀNH TIỀN 1 PHÒNG", "THÀNH TIỀN ĐỦ PHÒNG", "GHI CHÚ / NGUỒN GỐC",
+    "STT", "KÝ HIỆU", "HẠNG MỤC / MÔ TẢ CÔNG VIỆC", "QUY CÁCH / THÔNG SỐ KỸ THUẬT",
+    "MINH HỌA", "ĐVT", "DIỄN GIẢI (PHÂN TÍCH KL)", "KHỐI LƯỢNG", "TỔNG KHỐI LƯỢNG",
+    "ĐƠN GIÁ BÁO GIÁ (VND)", "THÀNH TIỀN 1 PHÒNG", "THÀNH TIỀN ĐỦ PHÒNG",
+    "GHI CHÚ / NGUỒN GỐC",
 ]
-WIDTHS = [6, 34, 32, 9, 8, 11, 13, 16, 16, 17, 24]
+WIDTHS = [6, 10, 32, 26, 10, 7, 28, 10, 12, 16, 16, 17, 22]
+
+
+def _L(col):
+    return get_column_letter(col)
+
 
 FLOOR_BY_ROOM = {
     "GT": "T.HẦM", "GARA": "T.HẦM", "WC0": "T.HẦM", "KHO-KT": "T.HẦM",
@@ -57,7 +68,7 @@ def create_floor_sheet(wb, cfg, floor):
     header_row = 4
     for j, h in enumerate(HEADERS, 1):
         ws.cell(header_row, j, h)
-    style_header_row(ws, header_row, len(HEADERS))
+    style_header_row(ws, header_row, NCOL)
     set_widths(ws, WIDTHS)
     ws.freeze_panes = "A5"
     return ws, header_row + 1
@@ -66,12 +77,12 @@ def create_floor_sheet(wb, cfg, floor):
 def append_room(ws, cfg, phong, rows, row, profit_default, images=None):
     images = images or {}
     sl = phong["so_luong"]
-    ws.cell(row, 1, "A")
-    ws.cell(row, 2, f"Phòng {phong['ma']} ({phong['ten']})")
-    ws.cell(row, 3, f"{sl} phòng")
-    ws.cell(row, 7, sl)
+    ws.cell(row, C_STT, "A")
+    ws.cell(row, C_HANGMUC, f"Phòng {phong['ma']} ({phong['ten']})")
+    ws.cell(row, C_QUYCACH, f"{sl} phòng")
+    ws.cell(row, C_TONGKL, sl)
     room_header_row = row
-    for c in range(1, len(HEADERS) + 1):
+    for c in range(1, NCOL + 1):
         ws.cell(row, c).font = BOLD
         ws.cell(row, c).fill = TOTAL_FILL
     row += 1
@@ -80,51 +91,53 @@ def append_room(ws, cfg, phong, rows, row, profit_default, images=None):
     first_item = row
     n_no_price = 0
     for gi, (_nm, group) in enumerate(group_rows(rows, cfg["scope"]), 1):
-        ws.cell(row, 1, roman(gi))
-        ws.cell(row, 2, group["ten"]).font = BOLD
-        for c in range(1, len(HEADERS) + 1):
+        ws.cell(row, C_STT, roman(gi))
+        ws.cell(row, C_HANGMUC, group["ten"]).font = BOLD
+        for c in range(1, NCOL + 1):
             ws.cell(row, c).fill = GRP_FILL
         row += 1
 
         for it in group["items"]:
             stt += 1
             kl = it["_kl"]
-            ncc = it["_gia_ncc"]
+            ncc = it["_gia_eff"]   # giá NCC hiệu dụng: trọn gói hoặc VL+NC
             profit = it["_profit_override"]
             profit = profit if profit is not None else profit_default
             gia = ncc * (1 + profit / 100.0) if ncc is not None else None
 
-            ws.cell(row, 1, stt)
-            ws.cell(row, 2, it.get("hang_muc"))
-            ws.cell(row, 3, it.get("quy_cach"))
-            ws.cell(row, 5, it.get("don_vi"))
+            ws.cell(row, C_STT, stt)
+            ws.cell(row, C_KYHIEU, it.get("ky_hieu"))
+            ws.cell(row, C_HANGMUC, it.get("hang_muc"))
+            ws.cell(row, C_QUYCACH, it.get("quy_cach"))
+            ws.cell(row, C_DVT, it.get("don_vi"))
+            ws.cell(row, C_DIENGIAI, it.get("dien_giai"))
             if kl is not None:
-                ws.cell(row, 6, kl).number_format = QTY
-                ws.cell(row, 7, f"=F{row}*{sl}").number_format = QTY
+                ws.cell(row, C_KL, kl).number_format = QTY
+                ws.cell(row, C_TONGKL, f"={_L(C_KL)}{row}*{sl}").number_format = QTY
             if gia is not None:
-                ws.cell(row, 8, round(gia)).number_format = MONEY
+                ws.cell(row, C_DONGIA, round(gia)).number_format = MONEY
             else:
                 n_no_price += 1
-            ws.cell(row, 9, f"=F{row}*H{row}").number_format = MONEY
-            ws.cell(row, 10, f"=G{row}*H{row}").number_format = MONEY
+            ws.cell(row, C_TT1, f"={_L(C_KL)}{row}*{_L(C_DONGIA)}{row}").number_format = MONEY
+            ws.cell(row, C_TTDU, f"={_L(C_TONGKL)}{row}*{_L(C_DONGIA)}{row}").number_format = MONEY
             note = it.get("ghi_chu") or ""
             if ncc is None:
                 note = (note + " | CHƯA CÓ GIÁ NCC").strip(" |")
-            ws.cell(row, 11, note)
-            for c in range(1, len(HEADERS) + 1):
+            ws.cell(row, C_GHICHU, note)
+            for c in range(1, NCOL + 1):
                 ws.cell(row, c).border = BORDER
             img = images.get((it.get("hang_muc") or "").strip())
             if img:
-                place_image(ws, row, img, col_idx=4)
+                place_image(ws, row, img, col_idx=C_MINHHOA)
             row += 1
 
     last_item = row - 1
-    ws.cell(row, 2, "TỔNG PHÒNG TRƯỚC VAT").font = BOLD
-    ws.cell(row, 9, f"=SUM(I{first_item}:I{last_item})").number_format = MONEY
-    ws.cell(row, 10, f"=SUM(J{first_item}:J{last_item})").number_format = MONEY
-    ws.cell(row, 9).font = ws.cell(row, 10).font = BOLD
-    ws.cell(room_header_row, 9, f"=I{row}").number_format = MONEY
-    ws.cell(room_header_row, 10, f"=J{row}").number_format = MONEY
+    ws.cell(row, C_HANGMUC, "TỔNG PHÒNG TRƯỚC VAT").font = BOLD
+    ws.cell(row, C_TT1, f"=SUM({_L(C_TT1)}{first_item}:{_L(C_TT1)}{last_item})").number_format = MONEY
+    ws.cell(row, C_TTDU, f"=SUM({_L(C_TTDU)}{first_item}:{_L(C_TTDU)}{last_item})").number_format = MONEY
+    ws.cell(row, C_TT1).font = ws.cell(row, C_TTDU).font = BOLD
+    ws.cell(room_header_row, C_TT1, f"={_L(C_TT1)}{row}").number_format = MONEY
+    ws.cell(room_header_row, C_TTDU, f"={_L(C_TTDU)}{row}").number_format = MONEY
     return row + 2, row, stt, n_no_price
 
 
@@ -148,8 +161,8 @@ def build_th(wb, cfg, room_refs):
         th.cell(row, 1, i)
         th.cell(row, 2, phong["ten"])
         th.cell(row, 3, phong["so_luong"])
-        th.cell(row, 4, f"='{sheet}'!I{total_row}").number_format = MONEY
-        th.cell(row, 5, f"='{sheet}'!J{total_row}").number_format = MONEY
+        th.cell(row, 4, f"='{sheet}'!{_L(C_TT1)}{total_row}").number_format = MONEY
+        th.cell(row, 5, f"='{sheet}'!{_L(C_TTDU)}{total_row}").number_format = MONEY
         for c in range(1, 7):
             th.cell(row, c).border = BORDER
         row += 1
@@ -233,14 +246,14 @@ def build(project_dir, profit=None):
             print(f"  {floor}/{phong['ma']}: {count} hạng mục{suffix}"
                   + (f" (+{len(images)} ảnh)" if images else ""))
         if floor_has_img:
-            ws.column_dimensions[get_column_letter(4)].width = minhhoa_col_width()
+            ws.column_dimensions[_L(C_MINHHOA)].width = minhhoa_col_width()
 
         if has_data and total_rows:
-            ws.cell(row, 2, f"TỔNG CỘNG {floor} TRƯỚC VAT").font = BOLD
-            ws.cell(row, 9, "=" + "+".join(f"I{x}" for x in total_rows)).number_format = MONEY
-            ws.cell(row, 10, "=" + "+".join(f"J{x}" for x in total_rows)).number_format = MONEY
-            ws.cell(row, 9).font = ws.cell(row, 10).font = BOLD
-            for c in range(1, len(HEADERS) + 1):
+            ws.cell(row, C_HANGMUC, f"TỔNG CỘNG {floor} TRƯỚC VAT").font = BOLD
+            ws.cell(row, C_TT1, "=" + "+".join(f"{_L(C_TT1)}{x}" for x in total_rows)).number_format = MONEY
+            ws.cell(row, C_TTDU, "=" + "+".join(f"{_L(C_TTDU)}{x}" for x in total_rows)).number_format = MONEY
+            ws.cell(row, C_TT1).font = ws.cell(row, C_TTDU).font = BOLD
+            for c in range(1, NCOL + 1):
                 ws.cell(row, c).fill = TOTAL_FILL
         else:
             del wb[ws.title]
