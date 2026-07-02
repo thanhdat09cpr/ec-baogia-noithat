@@ -245,7 +245,7 @@ def do_takeoff(pdf_path, room, scope, model, api_key):
     api_key = OpenRouter key (client gửi) hoặc None → đọc OPENROUTER_API_KEY server-side."""
     from openai import OpenAI
     key = api_key or os.environ.get("OPENROUTER_API_KEY")
-    client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=key)
+    client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=key, timeout=600)
     with open(pdf_path, "rb") as f:
         pdf_b64 = base64.standard_b64encode(f.read()).decode("utf-8")
 
@@ -270,9 +270,14 @@ YÊU CẦU:
 - KHÔNG điền đơn giá (nhà thầu phụ sẽ chào). Chỉ khối lượng + quy cách + ĐVT.
 - Chỉ trả về JSON, không kèm văn bản khác."""
 
-    resp = client.chat.completions.create(
+    # STREAM=True bắt buộc: bản vẽ nặng → OpenRouter chèn dòng keep-alive khi xử lý lâu,
+    # non-stream sẽ vỡ khi parse cả body. SSE parser tự bỏ qua dòng đó. Không ép plugin
+    # file-parser → OpenRouter dùng khả năng đọc file native của model (Opus nhìn bản vẽ).
+    stream = client.chat.completions.create(
         model=model,
         max_tokens=16000,
+        stream=True,
+        stream_options={"include_usage": True},
         messages=[
             {"role": "system", "content": SYSTEM},
             {"role": "user", "content": [
@@ -284,11 +289,15 @@ YÊU CẦU:
         ],
         response_format={"type": "json_schema", "json_schema": {
             "name": "boq", "strict": True, "schema": SCHEMA}},
-        # file-parser engine 'native' → model tự NHÌN bản vẽ (không OCR mất layout).
-        extra_body={"plugins": [{"id": "file-parser", "pdf": {"engine": "native"}}]},
         extra_headers={"X-Title": "E&C bao gia noi that"},
     )
-    text = resp.choices[0].message.content or ""
+    parts, stream_usage = [], None
+    for ch in stream:
+        if ch.choices and ch.choices[0].delta and ch.choices[0].delta.content:
+            parts.append(ch.choices[0].delta.content)
+        if getattr(ch, "usage", None):
+            stream_usage = ch.usage
+    text = "".join(parts)
     rows = _extract_rows(text)
     for r in rows:
         # GĐ1: 3 cột giá luôn trống (NCC chào ở GĐ2 — VL+NC hoặc trọn gói).
@@ -299,7 +308,7 @@ YÊU CẦU:
         r.setdefault("quy_cach", "")
         r.setdefault("dien_giai", "")
         r.setdefault("ghi_chu", "")
-    u = resp.usage
+    u = stream_usage
     return rows, {"input": getattr(u, "prompt_tokens", 0) or 0,
                   "output": getattr(u, "completion_tokens", 0) or 0}
 
