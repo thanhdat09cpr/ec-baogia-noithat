@@ -61,6 +61,8 @@ if [ ! -f .env ] || ! grep -q '^SECRET_KEY=' .env; then
     echo "ANTHROPIC_API_KEY="
     echo "TAKEOFF_MODEL=claude-opus-4-8"
     echo "USD_VND_RATE=25000"
+    # DOMAIN: subdomain Hostinger tu dong co cert (khong can tro DNS). Doi sang domain rieng neu da tro A record.
+    echo "DOMAIN=baogia.srv1741374.hstgr.cloud"
   } > .env
   echo ".env moi da tao"
 else
@@ -77,8 +79,9 @@ if ss -tlnp 2>/dev/null | grep -q ':80 '; then PORT=8000; else PORT=80; fi
 } > docker-compose.override.yml
 echo "PORT=$PORT"
 
-echo "== 6/6 build + up (db + migrate + app; bo caddy vi chua co domain) =="
+echo "== 6/6 build + up (db + migrate + app; Traefik co san route HTTPS qua DOMAIN) =="
 docker compose up -d --build db migrate app
+DOMAIN_VAL="$(grep -E '^DOMAIN=' .env | cut -d= -f2)"
 
 sleep 6
 echo "=================== KET QUA ==================="
@@ -90,5 +93,10 @@ else
   echo "HEALTH: CHUA OK — xem 'docker compose logs app'"
 fi
 echo "==============================================="
-echo "  TRUY CAP:  http://$IP:$PORT"
+echo "  TRUY CAP (truc tiep):  http://$IP:$PORT"
+if [ -n "$DOMAIN_VAL" ]; then
+  echo "  TRUY CAP (HTTPS qua Traefik):  https://$DOMAIN_VAL"
+  echo "  (cho ~30-60s de Traefik xin cert Let's Encrypt lan dau)"
+fi
+echo "  LUU Y: dien ANTHROPIC_API_KEY vao .env roi chay lai de bat AI boc tach."
 echo "==============================================="

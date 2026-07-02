@@ -29,6 +29,9 @@ services:
     restart: "no"
 
   # App gunicorn (1 worker gthread + ThreadPoolExecutor cho job nền).
+  # HTTPS: đi qua Traefik CÓ SẴN trên VPS (labels giống n8n) — KHÔNG chạy reverse proxy riêng,
+  # KHÔNG chiếm cổng 80/443. Traefik (host network) route tới container IP:8000 nội bộ.
+  # DOMAIN đặt trong .env; cert tự động qua certresolver 'letsencrypt' của Traefik.
   app:
     build:
       context: .
@@ -47,6 +50,12 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.baogia.entrypoints=websecure"
+      - "traefik.http.routers.baogia.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.baogia.tls.certresolver=letsencrypt"
+      - "traefik.http.services.baogia.loadbalancer.server.port=8000"
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
@@ -54,24 +63,5 @@ services:
       timeout: 5s
       retries: 5
 
-  # Caddy — reverse proxy + HTTPS tự động (ACME). Cần DNS trỏ IP + mở port 80/443.
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      DOMAIN: ${DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - app
-
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:
