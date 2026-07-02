@@ -28,7 +28,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from scripts import build_baogia_xlsx, build_boq_xlsx, check_boq  # noqa: E402
+from scripts import build_baogia_xlsx, build_boq_xlsx, check_boq, lib_boq  # noqa: E402
 from scripts.lib_boq import CSV_COLS as BOQ_CSV_COLS  # noqa: E402
 from webapp import jobs  # noqa: E402
 from webapp.db import DATABASE_URL, db_session, init_db, shutdown_session  # noqa: E402
@@ -472,6 +472,64 @@ def api_boq():
     p = load_project_or_403(d["project_id"])
     write_boq(p, d["ma"], d["rows"])
     return jsonify({"ok": True})
+
+
+ALLOWED_IMG = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+
+
+@app.route("/api/boq-images", methods=["GET"])
+def api_boq_images():
+    """Danh sách hạng mục đã có ảnh minh họa (để UI đánh dấu ✓)."""
+    pid = request.args.get("project_id")
+    ma = request.args.get("ma")
+    if not pid or not ma:
+        return jsonify({"ok": False, "error": "Thiếu project_id / ma."}), 400
+    p = load_project_or_403(pid)
+    m = lib_boq.load_image_map(project_dir(p), ma)   # raw ma (khớp build)
+    return jsonify({"ok": True, "images": sorted(m.keys())})
+
+
+@app.route("/api/boq-image", methods=["POST"])
+def api_boq_image():
+    """Upload 1 ảnh minh họa cho 1 hạng mục → lưu 01-extract/spec-img/ + cập nhật
+    02-boq/<ma>.anh.csv (hang_muc,img_path). Ảnh tự chèn cột MINH HỌA khi xuất Excel."""
+    pid = request.form.get("project_id")
+    ma = request.form.get("ma")
+    hm = (request.form.get("hang_muc") or "").strip()
+    f = request.files.get("image")
+    if not pid or not ma or not hm or f is None:
+        return jsonify({"ok": False, "error": "Thiếu project_id / ma / hang_muc / image."}), 400
+    ext = os.path.splitext(f.filename or "")[1].lower()
+    if ext not in ALLOWED_IMG:
+        return jsonify({"ok": False, "error": "Chỉ nhận ảnh PNG/JPG/WEBP/GIF."}), 400
+    p = load_project_or_403(pid)
+    img_dir = os.path.join(project_dir(p), "01-extract", "spec-img")
+    os.makedirs(img_dir, exist_ok=True)
+    fname = f"{slug(ma)}__{slug(hm)}{ext}"
+    f.save(os.path.join(img_dir, fname))
+    rel = f"spec-img/{fname}"   # đường dẫn tương đối 01-extract (load_image_map hiểu)
+    # Upsert vào <ma>.anh.csv (raw ma — khớp load_image_map trong build).
+    ap = os.path.join(project_dir(p), "02-boq", f"{ma}.anh.csv")
+    rows = []
+    if os.path.exists(ap):
+        with open(ap, encoding="utf-8-sig") as fh:
+            rows = [dict(r) for r in csv.DictReader(fh)]
+    found = False
+    for r in rows:
+        if (r.get("hang_muc") or "").strip() == hm:
+            r["img_path"] = rel
+            found = True
+    if not found:
+        rows.append({"hang_muc": hm, "img_path": rel})
+    os.makedirs(os.path.dirname(ap), exist_ok=True)
+    tmp = ap + ".tmp"
+    with open(tmp, "w", newline="", encoding="utf-8-sig") as fh:
+        w = csv.DictWriter(fh, fieldnames=["hang_muc", "img_path"])
+        w.writeheader()
+        for r in rows:
+            w.writerow({"hang_muc": r.get("hang_muc", ""), "img_path": r.get("img_path", "")})
+    os.replace(tmp, ap)
+    return jsonify({"ok": True, "img_path": rel})
 
 
 @app.route("/api/moi-thau", methods=["POST"])

@@ -300,7 +300,8 @@ function renderBoq(p, rows, mount, priceMode){
         <td class="qty qty-cell"><input data-k="kl_1phong" value="${attr(r.kl_1phong||"")}"></td>
         <td><select data-k="do_tin_cay" class="tc-${tc}">
           ${["cao","trung_binh","thap"].map(o=>`<option ${o==tc?"selected":""}>${o}</option>`).join("")}</select></td>
-        <td><span class="chip neut">ảnh</span></td></tr>`;
+        <td><label class="chip neut img-btn" data-hm="${attr(r.hang_muc||"")}" title="Tải ảnh minh họa">
+          <span class="lbl">ảnh</span><input type="file" accept="image/*" hidden></label></td></tr>`;
     }
   });
   h += `</tbody></table>`;
@@ -315,6 +316,33 @@ function renderBoq(p, rows, mount, priceMode){
   $$("input[data-k='profit_override'],input[data-k='don_gia_ncc']", mount).forEach(inp =>
     inp.oninput = () => recalcSell(inp.closest("tr")));
   wrap.querySelector("[data-save]").onclick = () => saveBoq(p, mount, priceMode);
+  if(!priceMode) wireImageButtons(p, mount);
+}
+
+// Minh họa: nút "ảnh" mở chọn file → upload → đánh dấu ✓ (chèn vào Excel khi xuất).
+function wireImageButtons(p, mount){
+  const mark = (b) => { b.querySelector(".lbl").textContent = "✓ ảnh"; b.style.color = "#166534"; b.style.borderColor = "#166534"; };
+  fetch(`/api/boq-images?project_id=${enc(state.project_id)}&ma=${enc(p.ma)}`)
+    .then(r => r.json()).then(d => {
+      const set = new Set(d.images || []);
+      $$(".img-btn", mount).forEach(b => { if(set.has(b.dataset.hm)) mark(b); });
+    }).catch(() => {});
+  $$(".img-btn", mount).forEach(b => {
+    const inp = b.querySelector("input");
+    inp.onchange = async () => {
+      if(!inp.files[0]) return;
+      const fd = new FormData();
+      fd.append("project_id", state.project_id); fd.append("ma", p.ma);
+      fd.append("hang_muc", b.dataset.hm); fd.append("image", inp.files[0]);
+      b.querySelector(".lbl").textContent = "…";
+      try{
+        const r = await (await fetch("/api/boq-image", {method:"POST", body:fd})).json();
+        if(r.ok){ mark(b); toast("Đã thêm ảnh minh họa ✓", "ok"); }
+        else { b.querySelector(".lbl").textContent = "ảnh"; toast(r.error || "Lỗi upload ảnh", "err"); }
+      }catch(e){ b.querySelector(".lbl").textContent = "ảnh"; toast("Lỗi: " + e, "err"); }
+      inp.value = "";
+    };
+  });
 }
 
 function recalcSell(tr){
