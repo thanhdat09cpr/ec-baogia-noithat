@@ -3,96 +3,120 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>E&C — Báo giá nội thất tự động</title>
+  <title>E&C — Báo giá nội thất</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<header>
-  <div class="brand">
-    <div class="logo">E&C</div>
-    <div>
-      <h1>Báo giá fit-out nội thất từ bản vẽ PDF</h1>
-      <p class="sub">Bóc khối lượng tự động bằng AI · file mời thầu · áp giá NCC + profit</p>
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="logo"><div class="mk">E&C</div><div><b>EuroStyle</b><span>Báo giá nội thất</span></div></div>
+    <div class="nav">
+      <a id="navProjects" class="on"><span class="ic">▦</span> Dự án của tôi</a>
+      <a id="navNew"><span class="ic">＋</span> Tạo báo giá mới</a>
+    </div>
+    <div class="foot">Bản nội bộ · chưa bật đăng nhập</div>
+  </aside>
+
+  <div>
+    <div class="topbar">
+      <div class="crumb" id="crumb"><b>Dự án của tôi</b></div>
+      <div class="user"><div class="avatar">EC</div> Người dùng</div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="content view on" id="dashboard">
+      <div class="page-head">
+        <div><div class="eyebrow">Tổng quan</div><h1>Dự án của tôi</h1></div>
+        <button class="btn" id="newProjectBtn">＋ Tạo báo giá mới</button>
+      </div>
+      <div class="stats">
+        <div class="card stat"><div class="k">Tổng dự án</div><div class="v num" id="statTotal">0</div></div>
+        <div class="card stat"><div class="k">Đang thực hiện</div><div class="v num" id="statActive">0</div></div>
+        <div class="card stat"><div class="k">Chờ giá NCC</div><div class="v num" id="statAwaiting">0</div></div>
+        <div class="card stat"><div class="k">Đã có báo giá</div><div class="v num" id="statQuoted">0</div></div>
+      </div>
+      <div class="card tbl-wrap">
+        <table>
+          <thead><tr><th>Dự án</th><th>Trạng thái</th><th>Cập nhật</th><th></th></tr></thead>
+          <tbody id="projRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- WIZARD -->
+    <div class="content view" id="wizard">
+      <div class="stepper" id="stepper">
+        <button data-w="1" class="on"><span class="n">1</span> Dự án &amp; bản vẽ</button>
+        <button data-w="2"><span class="n">2</span> Bóc &amp; duyệt KL</button>
+        <button data-w="3"><span class="n">3</span> File mời thầu</button>
+        <button data-w="4"><span class="n">4</span> Nhập giá NCC</button>
+        <button data-w="5"><span class="n">5</span> Báo giá nội bộ</button>
+      </div>
+
+      <!-- STEP 1 -->
+      <div class="wz on" data-wz="1"><div class="card pad">
+        <div class="eyebrow">Bước 1</div>
+        <h2 style="font-size:18px;margin:4px 0 18px">Thông tin dự án &amp; tải bản vẽ</h2>
+        <div class="form-grid">
+          <label class="fld">Tên dự án<input id="du_an" value="Khách sạn Handwritten Hà Nội"></label>
+          <label class="fld">Địa điểm<input id="dia_diem" value="68 Thợ Nhuộm, Hà Nội"></label>
+        </div>
+        <label class="fld" style="margin-bottom:16px">Hạng mục<input id="hang_muc" value="THI CÔNG HOÀN THIỆN NỘI THẤT GUESTROOM"></label>
+        <div class="eyebrow" style="margin-bottom:8px">Phạm vi báo giá (bật/tắt nhóm)</div>
+        <div id="scope" class="chips"></div>
+        <div class="eyebrow" style="margin:12px 0 8px">Các loại phòng + bản vẽ</div>
+        <div class="tbl-wrap card" style="border-color:var(--line-soft)">
+          <table><thead><tr><th>Mã</th><th>Loại phòng</th><th>SL</th><th>Bản vẽ PDF</th><th></th></tr></thead>
+            <tbody id="rooms"></tbody></table>
+        </div>
+        <p class="hint" style="margin-top:10px">Model AI &amp; API key do quản trị viên cấu hình chung ở máy chủ — nhân viên không cần nhập.</p>
+        <div class="actions"><button class="btn ghost" id="addRoom">＋ Thêm loại phòng</button>
+          <button class="btn" id="saveProject">Lưu &amp; sang bước 2 →</button></div>
+      </div></div>
+
+      <!-- STEP 2 -->
+      <div class="wz" data-wz="2">
+        <div class="banner"><span class="i">🤖</span><div><b>Bóc khối lượng bằng AI.</b>
+          Cột <b>mã &amp; hạng mục</b> neo theo bản vẽ; cột <b>khối lượng</b> (viền cam) là AI đo/đếm — <b>bạn duyệt/sửa</b>.
+          Đơn giá điền ở bước 4.</div></div>
+        <div id="roomTabs" class="roomtabs"></div>
+        <div id="boqArea"></div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="wz" data-wz="3"><div class="card pad">
+        <div class="eyebrow">Bước 3</div>
+        <h2 style="font-size:18px;margin:4px 0 8px">Xuất file mời thầu (gửi nhà thầu phụ)</h2>
+        <p class="muted" style="margin-bottom:18px">File để NCC điền đơn giá. <b>Đơn giá trống, không chứa % lợi nhuận.</b></p>
+        <button class="btn" id="buildMoiThau">Xuất file mời thầu (.xlsx)</button>
+        <div id="moiThauOut"></div>
+      </div></div>
+
+      <!-- STEP 4 -->
+      <div class="wz" data-wz="4">
+        <div class="banner warn"><span class="i">💰</span><div><b>Nhập đơn giá nhà thầu phụ chào</b> vào từng dòng
+          (dán số kiểu VN: 2.500.000). Dòng chưa có giá tô đỏ = "tạm tính". Có thể ghi đè % lợi nhuận riêng từng dòng.</div></div>
+        <div id="priceTabs" class="roomtabs"></div>
+        <div id="priceArea"></div>
+      </div>
+
+      <!-- STEP 5 -->
+      <div class="wz" data-wz="5"><div class="card pad">
+        <div class="eyebrow">Bước 5</div>
+        <h2 style="font-size:18px;margin:4px 0 8px">Báo giá nội bộ (áp lợi nhuận + VAT)</h2>
+        <p class="muted" style="margin-bottom:16px">Đơn giá bán = NCC × (1 + lợi nhuận%). Preliminaries nhập trọn gói.</p>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+          <label class="fld">Lợi nhuận (%)<input id="profit" type="number" value="10" step="0.5"></label>
+          <label class="fld">VAT (%)<input id="vat" type="number" value="8" step="0.5"></label>
+          <label class="fld">Preliminaries (trọn gói, VND)<input id="prelim" type="number" value="0"></label>
+        </div>
+        <button class="btn" id="buildBaoGia">Xuất báo giá nội bộ (.xlsx)</button>
+        <div id="baoGiaOut"></div>
+      </div></div>
     </div>
   </div>
-</header>
-
-<nav class="stepper">
-  <button class="step active" data-step="1"><b>1</b> Dự án &amp; bản vẽ</button>
-  <button class="step" data-step="2"><b>2</b> Bóc khối lượng (AI)</button>
-  <button class="step" data-step="3"><b>3</b> File mời thầu</button>
-  <button class="step" data-step="4"><b>4</b> Báo giá nội bộ</button>
-</nav>
-
-<main>
-  <!-- STEP 1 -->
-  <section class="panel active" id="panel-1">
-    <h2>1 · Thông tin dự án &amp; tải bản vẽ</h2>
-    <div class="grid2">
-      <label>Tên dự án <input id="du_an" value="Khách sạn Handwritten Hà Nội"></label>
-      <label>Địa điểm <input id="dia_diem" value="68 Thợ Nhuộm, Hà Nội"></label>
-    </div>
-    <label>Hạng mục <input id="hang_muc" value="THI CÔNG HOÀN THIỆN NỘI THẤT GUESTROOM"></label>
-
-    <div class="grid2">
-      <label>Model AI
-        <select id="model">
-          {% for id, name in models.items() %}
-          <option value="{{id}}">{{name}}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Anthropic API key <span class="hint">(để trống nếu đã đặt ANTHROPIC_API_KEY / ant login)</span>
-        <input id="api_key" type="password" placeholder="sk-ant-…">
-      </label>
-    </div>
-
-    <h3>Phạm vi báo giá (nhóm hạng mục)</h3>
-    <div id="scope" class="chips"></div>
-
-    <h3>Các loại phòng + bản vẽ PDF</h3>
-    <table class="rooms">
-      <thead><tr><th>Mã</th><th>Tên loại phòng</th><th>SL phòng</th><th>Bản vẽ PDF</th><th></th></tr></thead>
-      <tbody id="rooms"></tbody>
-    </table>
-    <button class="ghost" id="addRoom">+ Thêm loại phòng</button>
-
-    <div class="actions">
-      <button class="primary" id="saveProject">Lưu dự án &amp; sang bước 2 →</button>
-    </div>
-  </section>
-
-  <!-- STEP 2 -->
-  <section class="panel" id="panel-2">
-    <h2>2 · Bóc khối lượng tự động (AI đọc bản vẽ)</h2>
-    <p class="note">AI đọc PDF từng loại phòng và lập bảng khối lượng. <b>Bạn duyệt/sửa</b> trước
-      khi sang bước sau. Cột <b>Đơn giá NCC</b> để trống ở bước này — điền sau khi nhà thầu phụ chào giá.</p>
-    <div id="roomTabs" class="tabs"></div>
-    <div id="boqArea"></div>
-  </section>
-
-  <!-- STEP 3 -->
-  <section class="panel" id="panel-3">
-    <h2>3 · Xuất file mời thầu (đơn giá trống)</h2>
-    <p class="note">File gửi nhà thầu phụ điền đơn giá. <b>Không chứa profit.</b></p>
-    <button class="primary" id="buildMoiThau">Xuất moi-thau.xlsx</button>
-    <div id="moiThauOut" class="result"></div>
-  </section>
-
-  <!-- STEP 4 -->
-  <section class="panel" id="panel-4">
-    <h2>4 · Áp giá NCC + profit → báo giá nội bộ</h2>
-    <p class="note">Sau khi nhà thầu phụ chào giá, điền <b>Đơn giá NCC</b> vào bảng ở bước 2 (nhớ Lưu),
-      rồi xuất báo giá nội bộ. Đơn giá báo giá = NCC × (1 + profit%).</p>
-    <div class="grid3">
-      <label>Profit (%) <input id="profit" type="number" value="10" step="0.5"></label>
-      <label>VAT (%) <input id="vat" type="number" value="8" step="0.5"></label>
-      <label>Preliminaries (trọn gói, VND) <input id="prelim" type="number" value="0"></label>
-    </div>
-    <button class="primary" id="buildBaoGia">Xuất bao-gia-noi-bo.xlsx</button>
-    <div id="baoGiaOut" class="result"></div>
-  </section>
-</main>
+</div>
 
 <div id="toast"></div>
 <script src="/static/app.js"></script>

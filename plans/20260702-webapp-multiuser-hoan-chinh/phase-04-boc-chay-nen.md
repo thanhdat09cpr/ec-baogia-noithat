@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Bóc khối lượng chạy nền"
-status: pending
+status: done
 priority: P2
 effort: "1d"
 dependencies: [3]

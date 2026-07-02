@@ -10,6 +10,10 @@ projects/
 *.xlsx
 *.pdf
 
+# SQLite dev database (prod dùng Postgres)
+*.db
+webapp/dev.db
+
 # Secrets
 .env
 *.env

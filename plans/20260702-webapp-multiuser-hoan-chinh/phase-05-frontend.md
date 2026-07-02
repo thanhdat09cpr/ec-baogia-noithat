@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Frontend redesign + dashboard + nhập giá NCC (v1)"
-status: pending
+status: done
 priority: P2
 effort: "2d"
 dependencies: [3]

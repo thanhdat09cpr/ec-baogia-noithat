@@ -1,0 +1,14 @@
+# Caddy — HTTPS tự động (Let's Encrypt) + reverse proxy tới app gunicorn.
+# {$DOMAIN} và {$ACME_EMAIL} đọc từ biến môi trường (docker-compose truyền vào).
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip
+	# Giới hạn dung lượng upload PDF (khớp MAX_CONTENT_LENGTH 64MB của app).
+	request_body {
+		max_size 64MB
+	}
+	reverse_proxy app:8000
+}

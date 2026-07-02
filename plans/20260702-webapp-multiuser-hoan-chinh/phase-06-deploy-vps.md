@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Deploy VPS (Docker Compose + HTTPS)"
-status: pending
+status: config-ready
 priority: P1
 effort: "1.5d"
 dependencies: [1, 2, 3, 4, 5]

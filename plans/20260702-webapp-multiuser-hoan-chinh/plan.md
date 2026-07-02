@@ -1,6 +1,6 @@
 # Kế hoạch: Đưa web app báo giá nội thất lên bản HOÀN CHỈNH đa người dùng
 
-**Trạng thái tổng:** 🟡 Chưa bắt đầu
+**Trạng thái tổng:** 🟢 Phase 1,2,4,5 xong + Phase 6 config-ready; Phase 3 (auth) hoãn theo yêu cầu. Còn: deploy thật lên VPS (cần VPS/DNS) + bật auth khi có Google creds.
 **Ngày tạo:** 2026-07-02
 **Work context:** `E&C/`
 
@@ -30,15 +30,19 @@ bằng Docker. **KHÔNG đụng chất lượng bóc AI** (giai đoạn sau).
 - Người duyệt khối lượng trước khi xuất; đơn giá do NCC chào (AI không bịa giá).
 - File mời thầu không lộ profit. Thành tiền Excel là công thức.
 
+> ⚠️ **Cập nhật 2026-07-02:** Người dùng quyết định **HOÃN auth (Phase 3)** — trước mắt bỏ đăng
+> nhập, ai cũng vào được (owner = 1 user hệ thống chung, không gate). Làm lại Phase 3 khi có
+> Google OAuth creds. Thứ tự mới: Phase 4 (job nền) → Phase 5 (frontend) → Phase 3 (khi có creds) → Phase 6.
+
 ## Các giai đoạn
 | # | Giai đoạn | File | Trạng thái |
 |---|-----------|------|------------|
 | 1 | Chuẩn hóa chạy Linux/Docker (bỏ path Windows hardcode) | [phase-01](phase-01-chuan-hoa-linux-docker.md) | ✅ (verified: test to_number + round-trip GĐ1/GĐ2 lệch 0) |
-| 2 | PostgreSQL + mô hình dữ liệu + tách dự án theo người | [phase-02](phase-02-database-va-mo-hinh.md) | ⬜ |
-| 3 | Đăng nhập Google OAuth + admin duyệt | [phase-03](phase-03-auth-google-admin-duyet.md) | ⬜ |
-| 4 | Bóc khối lượng chạy nền (job + tiến trình) | [phase-04-boc-chay-nen.md](phase-04-boc-chay-nen.md) | ⬜ |
-| 5 | Chỉnh frontend (dashboard + wizard gọn) | [phase-05-frontend.md](phase-05-frontend.md) | ⬜ |
-| 6 | Deploy VPS (Docker Compose + HTTPS + quota) | [phase-06-deploy-vps.md](phase-06-deploy-vps.md) | ⬜ |
+| 2 | PostgreSQL + mô hình dữ liệu + tách dự án theo người | [phase-02](phase-02-database-va-mo-hinh.md) | ✅ (verified: test đa user 5/5 + Alembic up/down + import legacy) |
+| 3 | Đăng nhập Google OAuth + admin duyệt | [phase-03](phase-03-auth-google-admin-duyet.md) | ⏸️ HOÃN theo yêu cầu (bỏ auth, ai cũng vào được) — làm khi có Google creds |
+| 4 | Bóc khối lượng chạy nền (job + tiến trình) | [phase-04-boc-chay-nen.md](phase-04-boc-chay-nen.md) | ✅ (verified: test job 7/7 — submit/dedup/reaper/status 403/404) |
+| 5 | Chỉnh frontend (dashboard + wizard gọn) | [phase-05-frontend.md](phase-05-frontend.md) | ✅ (verified: test FE-API 3/3 + serve static/pages 200) |
+| 6 | Deploy VPS (Docker Compose + HTTPS + quota) | [phase-06-deploy-vps.md](phase-06-deploy-vps.md) | 🟡 Config xong (compose+Caddy+.env+deploy.md+backup+ProxyFix, YAML valid) — deploy thật chờ VPS/DNS |
 
 ## Phụ thuộc bên ngoài (CẦN từ khách/bạn)
 1. **Google OAuth credentials** — tạo OAuth 2.0 Client trên Google Cloud Console →

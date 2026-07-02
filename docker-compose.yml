@@ -1,11 +1,77 @@
 services:
-  web:
+  # DB Postgres — dữ liệu bền qua volume pgdata.
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-baogia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?can POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-baogia}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-baogia} -d ${POSTGRES_DB:-baogia}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # O2: migrate one-shot — chạy alembic upgrade head TRƯỚC app, xong thì thoát.
+  migrate:
     build:
       context: .
       dockerfile: webapp/Dockerfile
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./projects:/app/projects
+    command: ["python", "-m", "alembic", "-c", "webapp/alembic.ini", "upgrade", "head"]
     environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # App gunicorn (1 worker gthread + ThreadPoolExecutor cho job nền).
+  app:
+    build:
+      context: .
+      dockerfile: webapp/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TAKEOFF_MODEL: ${TAKEOFF_MODEL:-claude-opus-4-8}
+      SECRET_KEY: ${SECRET_KEY:?can SECRET_KEY >=32 bytes}
+      USD_VND_RATE: ${USD_VND_RATE:-25000}
+    volumes:
+      - ./projects:/app/projects   # O6: file dự án bền qua volume
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Caddy — reverse proxy + HTTPS tự động (ACME). Cần DNS trỏ IP + mở port 80/443.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
