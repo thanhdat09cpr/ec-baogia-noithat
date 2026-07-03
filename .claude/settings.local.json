@@ -1,9 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(winget install --id Python.Python.3.12 -e --accept-source-agreements --accept-package-agreements --scope user --silent)",
-      "mcp__codex__codex",
-      "mcp__codex__codex-reply"
+      "PowerShell(winget install --id Python.Python.3.12 -e --accept-source-agreements --accept-package-agreements --scope user --silent)"
     ]
   }
 }

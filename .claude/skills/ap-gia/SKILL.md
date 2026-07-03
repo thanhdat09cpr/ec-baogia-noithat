@@ -8,8 +8,12 @@ description: GĐ2 — Áp đơn giá nhà thầu phụ + cộng profit lên BOQ 
 Tham số `$ARGUMENTS` = tên dự án trong `projects/`. Python: `.venv\Scripts\python.exe`.
 
 ## Điều kiện
-- Có `02-boq/<MaPhong>.csv` đã bóc (GĐ1) và đã **điền cột `don_gia_ncc`** (giá NCC chào).
-  Nếu NCC trả về file Excel, giúp user chép đơn giá vào cột `don_gia_ncc` của CSV.
+- Có `02-boq/<MaPhong>.csv` đã bóc (GĐ1) và đã **điền giá NCC chào**:
+  - NCC chào **tách vật liệu/nhân công** (theo form mời thầu) → điền `don_gia_vl` + `don_gia_nc`.
+  - NCC chào **trọn gói** → điền `don_gia_ncc`.
+  - Có `don_gia_ncc` thì dùng nó; không thì giá NCC = VL + NC. Điền cả hai kiểu mà
+    lệch nhau → `check_boq` sẽ cảnh báo.
+  Nếu NCC trả về file Excel, giúp user chép đơn giá vào đúng cột của CSV.
 
 ## Các bước
 1. Kiểm `cau-hinh.json`: `profit_percent` (mặc định 10), `preliminaries_lumpsum`
@@ -21,7 +25,8 @@ Tham số `$ARGUMENTS` = tên dự án trong `projects/`. Python: `.venv\Scripts
    .venv\Scripts\python.exe scripts/build_baogia_xlsx.py projects/<ten> [--profit 10]
    ```
    → `03-baogia/bao-gia-noi-bo.xlsx`:
-   - Mỗi phòng 1 sheet, `đơn giá = don_gia_ncc × (1 + profit%)`, thành tiền là công thức.
+   - Mỗi tầng 1 sheet, `đơn giá = giá_NCC × (1 + profit%)` (giá_NCC = trọn gói hoặc
+     VL+NC), thành tiền là công thức. File nội bộ chỉ hiện 1 cột đơn giá — profit ẩn.
    - Sheet **TH**: cộng các phòng + Preliminaries (trọn gói) + VAT.
 
 3. Báo cáo: tổng từng loại phòng, tổng dự án trước/sau VAT, suất/phòng, và **danh sách

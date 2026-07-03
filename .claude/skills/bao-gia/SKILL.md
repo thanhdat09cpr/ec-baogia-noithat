@@ -17,7 +17,8 @@ Tham số `$ARGUMENTS` = tên dự án trong `projects/`. Python: `.venv\Scripts
 4. **DỪNG**: người duyệt khối lượng (`02-boq/`), rồi gửi `moi-thau.xlsx` cho nhà thầu phụ.
 
 ## Giai đoạn 2 — Nhận giá NCC + profit → báo giá nội bộ (gọi `/ap-gia`)
-5. NCC chào giá → điền vào cột `don_gia_ncc` trong `02-boq/<MaPhong>.csv`.
+5. NCC chào giá → điền `don_gia_vl` + `don_gia_nc` (chào tách theo form mời thầu)
+   hoặc `don_gia_ncc` (trọn gói) trong `02-boq/<MaPhong>.csv`.
 6. Chỉnh `profit_percent` / `preliminaries_lumpsum` trong `cau-hinh.json` (mặc định 10% / 0).
 7. Xuất `python scripts/build_baogia_xlsx.py projects/<ten>` → `03-baogia/bao-gia-noi-bo.xlsx`
    (đủ I/J + sheet TH + VAT). Báo cáo tổng từng phòng, tổng dự án, dòng chưa có giá.
