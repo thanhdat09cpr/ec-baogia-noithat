@@ -29,6 +29,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from scripts import build_baogia_xlsx, build_boq_xlsx, check_boq, lib_boq  # noqa: E402
+from scripts.legend_context import build_legend_context  # noqa: E402
 from scripts.lib_boq import CSV_COLS as BOQ_CSV_COLS  # noqa: E402
 from webapp import jobs  # noqa: E402
 from webapp.db import DATABASE_URL, db_session, init_db, shutdown_session  # noqa: E402
@@ -253,13 +254,16 @@ def do_takeoff(pdf_path, room, scope, model, api_key):
     cat_txt = "\n".join(
         f"- [{c['nhom_ma']} {c['nhom_ten']}] {c['hang_muc']} (ĐVT {c['don_vi']})"
         for c in cat)
+    # Mỏ neo TEXT trích thẳng từ bản vẽ (legend mã→tên) — grounding cho vision: dùng đúng
+    # mã ký hiệu, không bịa, không sót loại. Rỗng nếu PDF không có text/đọc lỗi (fallback êm).
+    legend_txt = build_legend_context(pdf_path, scope)
+    legend_block = f"\n\n{legend_txt}\n" if legend_txt else ""
     prompt = f"""Bóc khối lượng cho loại phòng: {room['ten']} (mã {room['ma']}).
 Chỉ bóc các NHÓM trong phạm vi: {', '.join(scope)}.
 
 Danh mục hạng mục tham chiếu (dùng đúng nhom_ma/nhom_ten và tên hạng mục gần nhất;
 được thêm hạng mục mới nếu bản vẽ có):
-{cat_txt}
-
+{cat_txt}{legend_block}
 YÊU CẦU:
 - Trả về JSON object có khóa 'rows' = danh sách cho 1 phòng (kl_1phong = khối lượng 1 phòng).
 - Mỗi phần tử: nhom_ma, nhom_ten, ky_hieu, hang_muc, quy_cach, don_vi, dien_giai,
